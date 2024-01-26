@@ -15,7 +15,7 @@ int main() {
         rv = zcs_get_attribs(names[0], attrs, 5);
         if ((strcmp(attrs[0].attr_name, "location") == 0) &&
             (strcmp(attrs[0].value, "kitchen") == 0)) {
-                rv = zces_listen_ad(names[0], hello);
+                rv = zcs_listen_ad(names[0], hello);
         }
     }
 }
