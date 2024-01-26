@@ -11,7 +11,7 @@
     for (item = (array) + count; keep; keep = !keep)
 
 typedef struct _zcs_node_t {
-  char *address;
+  struct sockaddr_in address;
   char *name;
   int status;
   struct _zcs_node_t *next;
@@ -70,9 +70,7 @@ int zcs_init() {
       multicast_receive(m, msg, sizeof(msg));
       if (strcmp(msg, NOTIFICATION) == 0) {
         zcs_node_t *node = (zcs_node_t *)malloc(sizeof(zcs_node_t));
-        char *address = (char *)malloc(sizeof(char) * 16);
-        address = (char *)m->my_addr;
-        strcpy(node->address, address);
+        node->address = m->my_addr;
       }
     }
   }
