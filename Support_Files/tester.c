@@ -19,9 +19,9 @@ int main(int argc, char *argv[]) {
 
     char *msg = argv[3];
     multicast_setup_recv(m);
-    printf("==============\n");
-    multicast_send(m, msg, strlen(msg));
-    printf("==============\n");
+    // printf("==============\n");
+    // multicast_send(m, msg, strlen(msg));
+    // printf("==============\n");
     while (1) {
 	while (multicast_check_receive(m) == 0) {
 	    multicast_send(m, msg, strlen(msg));
