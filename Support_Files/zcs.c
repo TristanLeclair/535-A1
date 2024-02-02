@@ -1,16 +1,41 @@
 #include "zcs.h"
 #include "multicast.h"
-#include "reveive_send.h"
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <time.h>
 
 #define foreach(item, array)                                                   \
   for (int keep = 1, count = 0, size = sizeof(array) / sizeof(*(array));       \
        keep && count != size; keep = !keep, count++)                           \
     for (item = (array) + count; keep; keep = !keep)
+
+typedef struct _zcs_node_t {
+  struct sockaddr_in address;
+  char *name;
+  int status;                         // 0 for down, 1 for up
+  time_t hearbeat_time;
+  struct _zcs_node_t *next;
+  zcs_attribute_t *attriutes[];
+} zcs_node_t;
+
+typedef struct _node_list_t {
+  zcs_node_t *head;
+  zcs_node_t *tail;
+} node_list_t;
+
+typedef struct ad_node {
+  char *name;
+  zcs_cb_f cback;
+  struct ad_node *next;
+} ad_node_t;
+
+typedef struct ad_list {
+  ad_node_t *head;
+  ad_node_t *tail;
+} ad_list_t;
 
 
 mcast_t *m;
@@ -23,9 +48,6 @@ int INITIALIZED = 0;
 // Global var to stop thread
 int stopThread = 0;
 
-#define DISCOVERY "DISCOVERY"
-#define NOTIFICATION "NOTIFICATION"
-#define HEARTBEAT "HEARTBEAT"
 
 void add_node(zcs_node_t *node) {
   if (local_registry->head == NULL) {
@@ -97,7 +119,7 @@ int zcs_init(int type) {
 
   }
 
-  INTIALIZED = 1;
+  INITIALIZED = 1;
   return 0;
 }
 
@@ -286,5 +308,111 @@ void zcs_log() {
       printf("%s is UP\n", current->name);
     }
     current = current->next;
+  }
+}
+
+
+
+
+/*
+  Help functions
+*/
+
+void run_receive_service_message(){
+  while (1) {
+    // Check for messages
+    int rc = multicast_check_receive(m);
+
+    // If there is a message, then process it
+    if (rc > 0) {
+      char *msg = (char *)malloc(sizeof(char) * 1024);
+      // Receive the message
+      multicast_receive(m, msg, sizeof(msg));
+
+      // Check the message type
+      if (strcmp(msg, NOTIFICATION) == 0) {
+        // Deserialize the message and get the name of the node and create a new node in the local registry
+        zcs_node_t *node = (zcs_node_t *)malloc(sizeof(zcs_node_t));
+        deserialize_notification(msg, node);
+        add_node(node);
+        node->status = 1;
+        // This may be unnecessary
+        node->hearbeat_time = time(NULL);
+
+      }
+      else if(strcmp(msg, ADD)){
+        // Deserialize the message and get the name of the node
+
+        // Check if the node is in the ad_list
+        ad_node_t *current = ad_list->head;
+        while (current != NULL) {
+          if (strcmp(current->name, name) == 0) {
+            // Set the call back function of the node
+            current->cback(name, value);
+          }
+          current = current->next;
+        }
+      }
+      else if(strcmp(msg, HEARTBEAT)){
+        // Deserialize the message and get the name of the node
+
+        // Update the status of the node
+        zcs_node_t *current = local_registry->head;
+        while (current != NULL) {
+          if (strcmp(current->name, name) == 0) {
+            current->status = 1;
+            current->hearbeat_time = time(NULL);
+          }
+          current = current->next;
+        }
+      }
+    }
+  }
+
+}
+
+void run_receive_discovery_message() {
+  while(stopThread == 0){
+    // Continually check for DISCOVERY messages
+    int rc = multicast_check_receive(m);
+    if (rc > 0) {
+      char *msg = (char *)malloc(sizeof(char) * 1024);
+      multicast_receive(m, msg, sizeof(msg));
+      // If the incoming message is a DISCOVERY message, then send a NOTIFICATION message
+      if (strcmp(msg, DISCOVERY) == 0) {
+        char *notification = (char *)malloc(sizeof(char) * 1024);
+        serialize_notification(notification, local_registry->head);
+        int sent = multicast_send(m, notification, sizeof(notification));
+        if (sent < 0) {
+          return -1;
+        }
+      }
+    }
+  }
+}
+
+void run_send_heartbeat() {
+  while(stopThread == 0){
+    sleep(3);
+    // Continually send HEARTBEAT messages
+    int sent = multicast_send(m, msg, sizeof(msg));
+    if (sent < 0) {
+      return -1;
+    }
+  }
+}
+
+void run_heartbeat_service(){
+  // Check the heartbeat count of all the nodes every 5 seconds
+  while(1){
+    sleep(6);
+    zcs_node_t *current = local_registry->head;
+    while (current != NULL) {
+      // If the node heartbeat count doesn't equal the required heartbeat count, then set the status to DOWN
+      if ((time(NULL)  -current->hearbeat_time) > 3 ) {
+        current->status = 0;
+      }
+      current = current->next;
+    }
   }
 }
