@@ -1,5 +1,6 @@
 #include "zcs.h"
 #include "multicast.h"
+#include "reveive_send.h"
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,33 +12,13 @@
        keep && count != size; keep = !keep, count++)                           \
     for (item = (array) + count; keep; keep = !keep)
 
-typedef struct _zcs_node_t {
-  struct sockaddr_in address;
-  char *name;
-  int status;                         // 0 for down, 1 for up
-  struct _zcs_node_t *next;
-  zcs_attribute_t *attriutes[];
-} zcs_node_t;
-
-typedef struct _node_list_t {
-  zcs_node_t *head;
-  zcs_node_t *tail;
-} node_list_t;
-
-typedef struct ad_node {
-  char *name;
-  zcs_cb_f cback;
-  struct ad_node *next;
-} ad_node_t;
-
-typedef struct ad_list {
-  ad_node_t *head;
-  ad_node_t *tail;
-} ad_list_t;
 
 mcast_t *m;
 node_list_t *local_registry;
 ad_list_t *ad_list;
+int STARTED = 0;
+int INITIALIZED = 0;
+
 
 // Global var to stop thread
 int stopThread = 0;
@@ -66,55 +47,6 @@ void add_ad_node(ad_node_t *node) {
   }
 }
 
-void run_receive_service_message(){
-  while (1) {
-    // Check for messages
-    int rc = multicast_check_receive(m);
-
-    // If there is a message, then process it
-    if (rc > 0) {
-      char *msg = (char *)malloc(sizeof(char) * 1024);
-      // Receive the message
-      multicast_receive(m, msg, sizeof(msg));
-
-      // Check the message type
-      if (strcmp(msg, NOTIFICATION) == 0) {
-        // Deserialize the message and get the name of the node and create a new node in the local registry
-        zcs_node_t *node = (zcs_node_t *)malloc(sizeof(zcs_node_t));
-        deserialize_notification(msg, node);
-        add_node(node);
-        node->status = 1;
-
-      }
-      else if(strcmp(msg, ADD)){
-        // Deserialize the message and get the name of the node
-
-        // Check if the node is in the ad_list
-        ad_node_t *current = ad_list->head;
-        while (current != NULL) {
-          if (strcmp(current->name, name) == 0) {
-            // Set the call back function of the node
-            current->cback(name, value);
-          }
-          current = current->next;
-        }
-      }
-      else if(strcmp(msg, HEARTBEAT)){
-        // Deserialize the message and get the name of the node
-
-        // Update the status of the node
-        zcs_node_t *current = local_registry->head;
-        while (current != NULL) {
-          if (strcmp(current->name, name) == 0) {
-            current->status = 1;
-          }
-          current = current->next;
-        }
-      }
-    }
-  }
-
-}
 
 /*
 This initializes the ZCS library. This library function must be called before
@@ -145,6 +77,8 @@ int zcs_init(int type) {
       return -1;
     }
 
+    int heartbeat_thread = pthread_create(&tid, NULL, run_heartbeat_service, m);
+
     // Send a DISCOVERY message to the network
     int disc = multicast_send(m, DISCOVERY, sizeof(DISCOVERY));
     if (disc < 0) {
@@ -163,6 +97,7 @@ int zcs_init(int type) {
 
   }
 
+  INTIALIZED = 1;
   return 0;
 }
 
@@ -181,6 +116,11 @@ Otherwise, it returns a -1, which happens if the start was attempted before the
 initialization was called.
  */
 int zcs_start(char *name, zcs_attribute_t attr[], int num) {
+  // Check if the node was initialized
+  if (INITIALIZED == 0) {
+    return -1;
+  }
+
   int i = 0;
   while (name[i] != '\0') {
     if (name[i] > 127 || name[i] < 0) {
@@ -201,24 +141,16 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
     return -1;
   }
 
-  while(stopThread == 0){
-    int rc = multicast_check_receive(m);
-    if (rc > 0) {
-      char *msg = (char *)malloc(sizeof(char) * 1024);
-      multicast_receive(m, msg, sizeof(msg));
-      // If the incoming message is a DISCOVERY message, then send a NOTIFICATION message
-      if (strcmp(msg, DISCOVERY) == 0) {
-        char *notification = (char *)malloc(sizeof(char) * 1024);
-        serialize_notification(notification, local_registry->head);
-        int sent = multicast_send(m, notification, sizeof(notification));
-        if (sent < 0) {
-          return -1;
-        }
-      }
-    }
-  }
+  pthread_t tid1;
+  pthread_t tid2;
 
+  // Create a thread to run receive_discovery_message
+  int result = pthread_create(&tid1, NULL, run_receive_discovery_message, m);
 
+  // Create a thread to run send_heartbeat
+  int result = pthread_create(&tid2, NULL, run_send_heartbeat, m);
+
+  STARTED = 1;
   return 0;
 }
 
@@ -320,6 +252,9 @@ For example, if the call to shutdown is made before the node was started it will
 */
 int zcs_shutdown() {
   // Check if the node was started
+  if (STARTED == 0) {
+    return -1;
+  }
 
   // Close the multicast socket
   multicast_close(m);
@@ -353,29 +288,3 @@ void zcs_log() {
     current = current->next;
   }
 }
-
-
-// Helper functions
-
-// Helper function to serialize a NOTIFICATION message
-// void serialize_notification(char *msg, zcs_node_t *node) {
-//   char *addr = inet_ntoa(node->address.sin_addr);
-//   char *port = (char *)malloc(sizeof(char) * 6);
-//   sprintf(port, "%d", ntohs(node->address.sin_port));
-//   strcpy(msg, "NOTIFICATION ");
-//   strcat(msg, node->name);
-//   strcat(msg, " ");
-//   strcat(msg, addr);
-//   strcat(msg, " ");
-//   strcat(msg, port);
-// }
-
-// // Helper function to deserialize a NOTIFICATION message
-// void deserialize_notification(char *msg, zcs_node_t *node) {
-//   char *token = strtok(msg, " ");
-//   strcpy(node->name, token);
-//   token = strtok(NULL, " ");
-//   node->address.sin_addr.s_addr = inet_addr(token);
-//   token = strtok(NULL, " ");
-//   node->address.sin_port = htons(atoi(token));
-// }
