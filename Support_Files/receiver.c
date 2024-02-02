@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
     }
     
     int rport = atoi(argv[1]);
-    int sport = rport + rport + random() % rport;
+    int sport = 8080;
     printf("Receivng port: %d\n", rport);
     printf("Send port (nothing sent): %d\n", sport);
 
