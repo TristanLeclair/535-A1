@@ -1,21 +1,25 @@
 #include "zcs.h"
 #include "multicast.h"
+#include <cstdio>
 #include <netinet/in.h>
+#include <pthread.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <pthread.h>
 #include <time.h>
+#include <unistd.h>
 
 #define foreach(item, array)                                                   \
   for (int keep = 1, count = 0, size = sizeof(array) / sizeof(*(array));       \
        keep && count != size; keep = !keep, count++)                           \
     for (item = (array) + count; keep; keep = !keep)
 
+enum Msg_type { NOTIFICATION, DISCOVERY, HEARTBEAT, AD };
+
 typedef struct _zcs_node_t {
   struct sockaddr_in address;
   char *name;
-  int status;                         // 0 for down, 1 for up
+  int status; // 0 for down, 1 for up
   time_t hearbeat_time;
   struct _zcs_node_t *next;
   zcs_attribute_t *attriutes[];
@@ -37,17 +41,17 @@ typedef struct ad_list {
   ad_node_t *tail;
 } ad_list_t;
 
-
 mcast_t *m;
 node_list_t *local_registry;
+char *service_name;
+zcs_attribute_t attr[];
+int num_attr;
 ad_list_t *ad_list;
 int STARTED = 0;
 int INITIALIZED = 0;
 
-
 // Global var to stop thread
 int stopThread = 0;
-
 
 void add_node(zcs_node_t *node) {
   if (local_registry->head == NULL) {
@@ -69,6 +73,67 @@ void add_ad_node(ad_node_t *node) {
   }
 }
 
+char *create_discovery_msg() {
+  size_t len = snprintf(NULL, 0, "%d#", DISCOVERY) + 1;
+
+  char *result = malloc(len);
+
+  snprintf(result, len, "%d#", DISCOVERY);
+
+  return result;
+}
+
+char *create_heartbeat_msg() {
+  size_t len = snprintf(NULL, 0, "%d#%s#", HEARTBEAT, service_name) + 1;
+
+  char *result = malloc(len);
+
+  snprintf(result, len, "%d#%s#", HEARTBEAT, service_name);
+
+  return result;
+}
+
+char *create_notification_msg() {
+  enum Msg_type type = NOTIFICATION;
+  size_t header_len = snprintf(NULL, 0, "%d#%s#", type, service_name);
+  header_len += 1;
+  size_t total_len = header_len;
+
+  for (int i = 0; i < num_attr; ++i) {
+    total_len += snprintf(NULL, 0, "%s;%s#", attr[i].attr_name, attr[i].value);
+  }
+
+  char *result = malloc(total_len);
+
+  if (result == NULL) {
+    fprintf(stderr, "Memory allocation failed!\n");
+    exit(EXIT_FAILURE);
+  }
+
+  snprintf(result, header_len, "%d#%s#", type, service_name);
+
+  for (int i = 0; i < num_attr; ++i) {
+    strcat(result, attr[i].attr_name);
+    strcat(result, ";");
+    strcat(result, attr[i].value);
+    strcat(result, "#");
+  }
+
+  return result;
+}
+
+char *create_ad_msg(char *ad_name, char *ad_value) {
+  enum Msg_type type = AD;
+  size_t len =
+      snprintf(NULL, 0, "%d#%s#%s#%s#", type, service_name, ad_name, ad_value) +
+      1;
+
+  char *result = malloc(len);
+
+  snprintf(result, len, "%d#%s#%s#%s#", type, service_name, ad_name, ad_value);
+
+  return result;
+}
 
 /*
 This initializes the ZCS library. This library function must be called before
@@ -115,8 +180,6 @@ int zcs_init(int type) {
     if (m == NULL) {
       return -1;
     }
-
-
   }
 
   INITIALIZED = 1;
@@ -153,6 +216,7 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
   if (i > 63) {
     return -1;
   }
+  service_name = name;
 
   // Set up message receiving
   multicast_setup_recv(m);
@@ -192,23 +256,23 @@ int zcs_post_ad(char *ad_name, char *ad_value) {
   // Send an ADD message to the network
 
   // Needs a bit of work to repeat attempts
-  int sent = multicast_send(m, ADD, sizeof(ADD));
+  int sent = multicast_send(m, AD, sizeof(AD));
   if (sent < 0) {
     return -1;
   }
   return 0;
 }
 
-
 /*
-This function is used to scan for nodes with a given value for a given attribute. 
-If no matching nodes are found, the call returns a 0. Otherwise, the call returns 
-the number of nodes found in the network. The names of the nodes found are stored 
-in the node_names. A call to zcs_query() can fail to find a matching node if there 
-are no nodes with matching attributes or the calling node is not in the same 
-network as the matching node.
+This function is used to scan for nodes with a given value for a given
+attribute. If no matching nodes are found, the call returns a 0. Otherwise, the
+call returns the number of nodes found in the network. The names of the nodes
+found are stored in the node_names. A call to zcs_query() can fail to find a
+matching node if there are no nodes with matching attributes or the calling node
+is not in the same network as the matching node.
 */
-int zcs_query(char *attr_name, char *attr_value, char *node_names[], int namelen) {
+int zcs_query(char *attr_name, char *attr_value, char *node_names[],
+              int namelen) {
   int i = 0;
   zcs_node_t *current = local_registry->head;
   while (current != NULL && i < namelen) {
@@ -220,16 +284,16 @@ int zcs_query(char *attr_name, char *attr_value, char *node_names[], int namelen
     current = current->next;
   }
   return i;
-
 }
 
 /*
-This function is used to get the full list of attributes of a node that is returned
-by the zcs_query() function. The first argument is the name of the node. The second
-argument is an attribute array that is already allocated. The third argument is set
-to the number of slots allocated in the attribute array. The function sets it to the
-number of actual attributes read from the node. The return value of the function is 0
-if there is no error and is -1 if there is an error.
+This function is used to get the full list of attributes of a node that is
+returned by the zcs_query() function. The first argument is the name of the
+node. The second argument is an attribute array that is already allocated. The
+third argument is set to the number of slots allocated in the attribute array.
+The function sets it to the number of actual attributes read from the node. The
+return value of the function is 0 if there is no error and is -1 if there is an
+error.
 */
 int zcs_get_attribs(char *name, zcs_attribute_t attr[], int *num) {
   zcs_node_t *current = local_registry->head;
@@ -243,14 +307,14 @@ int zcs_get_attribs(char *name, zcs_attribute_t attr[], int *num) {
     current = current->next;
   }
   return -1;
-
 }
 
 /*
-This function takes two arguments. The first is a name of the target node and the second
-is the callback that will be triggered when the target posts an advertisement. The callback
-has two arguments: name of the advertisement and the value of the advertisement. 
-There is no mechanism for un-listening to an advertisement.
+This function takes two arguments. The first is a name of the target node and
+the second is the callback that will be triggered when the target posts an
+advertisement. The callback has two arguments: name of the advertisement and the
+value of the advertisement. There is no mechanism for un-listening to an
+advertisement.
 */
 int zcs_listen_ad(char *name, zcs_cb_f cback) {
   zcs_node_t *current = local_registry->head;
@@ -263,14 +327,13 @@ int zcs_listen_ad(char *name, zcs_cb_f cback) {
     current = current->next;
   }
   return -1;
-
 }
 
-
 /*
-This function is called to terminate the activities of the ZCS by a program before it
-terminates. The call returns a 0 if it is a success. Otherwise, it will return a -1.
-For example, if the call to shutdown is made before the node was started it will return a -1.
+This function is called to terminate the activities of the ZCS by a program
+before it terminates. The call returns a 0 if it is a success. Otherwise, it
+will return a -1. For example, if the call to shutdown is made before the node
+was started it will return a -1.
 */
 int zcs_shutdown() {
   // Check if the node was started
@@ -280,7 +343,7 @@ int zcs_shutdown() {
 
   // Close the multicast socket
   multicast_close(m);
-  
+
   // Set global var so that the receive thread can stop
   stopThread = 1;
 
@@ -289,15 +352,15 @@ int zcs_shutdown() {
   free(ad_list);
 
   return 0;
-
 }
 
 /*
-This function prints the node UP and DOWN logs. That is, every time a node fails (goes down)
-the observing node makes a note of that event in its log. Similarly, every time a node
-boots up (comes up) the observing node makes a note. This function prints the log that is
-maintained at the local node. The log can be truncated once it reaches a predefined length in
-size or time. There is no return value for this function.
+This function prints the node UP and DOWN logs. That is, every time a node fails
+(goes down) the observing node makes a note of that event in its log. Similarly,
+every time a node boots up (comes up) the observing node makes a note. This
+function prints the log that is maintained at the local node. The log can be
+truncated once it reaches a predefined length in size or time. There is no
+return value for this function.
 */
 void zcs_log() {
   zcs_node_t *current = local_registry->head;
@@ -311,14 +374,11 @@ void zcs_log() {
   }
 }
 
-
-
-
 /*
   Help functions
 */
 
-void run_receive_service_message(){
+void run_receive_service_message() {
   while (1) {
     // Check for messages
     int rc = multicast_check_receive(m);
@@ -331,7 +391,8 @@ void run_receive_service_message(){
 
       // Check the message type
       if (strcmp(msg, NOTIFICATION) == 0) {
-        // Deserialize the message and get the name of the node and create a new node in the local registry
+        // Deserialize the message and get the name of the node and create a new
+        // node in the local registry
         zcs_node_t *node = (zcs_node_t *)malloc(sizeof(zcs_node_t));
         deserialize_notification(msg, node);
         add_node(node);
@@ -339,8 +400,7 @@ void run_receive_service_message(){
         // This may be unnecessary
         node->hearbeat_time = time(NULL);
 
-      }
-      else if(strcmp(msg, ADD)){
+      } else if (strcmp(msg, AD)) {
         // Deserialize the message and get the name of the node
 
         // Check if the node is in the ad_list
@@ -352,8 +412,7 @@ void run_receive_service_message(){
           }
           current = current->next;
         }
-      }
-      else if(strcmp(msg, HEARTBEAT)){
+      } else if (strcmp(msg, HEARTBEAT)) {
         // Deserialize the message and get the name of the node
 
         // Update the status of the node
@@ -368,17 +427,17 @@ void run_receive_service_message(){
       }
     }
   }
-
 }
 
 void run_receive_discovery_message() {
-  while(stopThread == 0){
+  while (stopThread == 0) {
     // Continually check for DISCOVERY messages
     int rc = multicast_check_receive(m);
     if (rc > 0) {
       char *msg = (char *)malloc(sizeof(char) * 1024);
       multicast_receive(m, msg, sizeof(msg));
-      // If the incoming message is a DISCOVERY message, then send a NOTIFICATION message
+      // If the incoming message is a DISCOVERY message, then send a
+      // NOTIFICATION message
       if (strcmp(msg, DISCOVERY) == 0) {
         char *notification = (char *)malloc(sizeof(char) * 1024);
         serialize_notification(notification, local_registry->head);
@@ -392,7 +451,7 @@ void run_receive_discovery_message() {
 }
 
 void run_send_heartbeat() {
-  while(stopThread == 0){
+  while (stopThread == 0) {
     sleep(3);
     // Continually send HEARTBEAT messages
     int sent = multicast_send(m, msg, sizeof(msg));
@@ -402,14 +461,15 @@ void run_send_heartbeat() {
   }
 }
 
-void run_heartbeat_service(){
+void run_heartbeat_service() {
   // Check the heartbeat count of all the nodes every 5 seconds
-  while(1){
+  while (1) {
     sleep(6);
     zcs_node_t *current = local_registry->head;
     while (current != NULL) {
-      // If the node heartbeat count doesn't equal the required heartbeat count, then set the status to DOWN
-      if ((time(NULL)  -current->hearbeat_time) > 3 ) {
+      // If the node heartbeat count doesn't equal the required heartbeat count,
+      // then set the status to DOWN
+      if ((time(NULL) - current->hearbeat_time) > 3) {
         current->status = 0;
       }
       current = current->next;
