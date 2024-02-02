@@ -13,10 +13,11 @@
     for (item = (array) + count; keep; keep = !keep)
 
 typedef struct _zcs_node_t {
-  struct sockaddr_in address;
+  // struct sockaddr_in address;
   char *name;
   int status;                         // 0 for down, 1 for up
   time_t hearbeat_time;
+  zcs_cb_f cback;
   struct _zcs_node_t *next;
   zcs_attribute_t *attriutes[];
 } zcs_node_t;
@@ -36,6 +37,12 @@ typedef struct ad_list {
   ad_node_t *head;
   ad_node_t *tail;
 } ad_list_t;
+
+typedef struct ad_notification {
+  char *service_name;
+  char *name;
+  char *value;
+} ad_notification_t;
 
 
 mcast_t *m;
@@ -66,6 +73,126 @@ void add_ad_node(ad_node_t *node) {
   } else {
     ad_list->tail->next = node;
     ad_list->tail = node;
+  }
+}
+
+// Deserialize the header of the message
+int deserialize_header(char *msg) {
+  int i = 0;
+  char *header_str = (char *)malloc(sizeof(char) * 64);
+  int header = '\0';
+  while (msg[i] != '#') {
+    strcat(header_str, msg[i]);
+    i++;
+  }
+  header = atoi(header_str);
+  return header;
+}
+
+
+char* deserialize_heartbeat(char *msg){
+  // Deserialize the message and get the name of the node
+  char *name = (char *)malloc(sizeof(char) * 64);
+  name= '\0';
+  int i = 0;
+  int past_header = 0;
+  // DOUBLE CHECK THAT SENDTO SENDS A MESSAGE WITH A NULL TETMINATOR
+  while (msg[i] != '\0') {
+    if (msg[i] == '#') {
+      past_header = 1;
+    }
+    if (past_header == 1) {
+      strcat(name, msg[i]);
+    }
+    i++;
+  }
+  name[i] = '\0';
+  return name;
+}
+
+zcs_node_t deserialize_notification(char *msg, zcs_node_t *node){
+  int location_in_msg = 0;
+  int i = 0;
+  int reading_key = 0;
+  int reading_value = 0;
+  int reading_name = 0;
+  // Start nume attributes at -1 so that the first attribute is at 0
+  int num_attributes = -1;
+
+  while (msg[i] != '\0') {
+
+    // If the message is a # then we are at a new location in the message
+    if (msg[i] == '#') {
+      location_in_msg ++;
+      // If the location is 1 then we are reading the name of the node
+      if (location_in_msg == 1) {
+        reading_name = 1;
+      }
+      // After the second #, we are reading the key and value of the attributes
+      else if (location_in_msg >= 2){
+        reading_name = 0;
+        reading_key = 1;
+        reading_value = 0;
+        num_attributes++;
+      }
+      continue;
+    }
+    else if (msg[i] == ';') {
+      reading_key = 0;
+      reading_value = 1;
+      continue;
+    }
+    
+    if (reading_name == 1) {
+      strcat(node->name, msg[i]);
+      continue;
+    }
+    else if (reading_key == 1) {
+      strcpy(node->attriutes[num_attributes]->attr_name, msg[i]);
+    }
+    else if (reading_value == 1) {
+      strcpy(node->attriutes[num_attributes]->value, msg[i]);
+    }
+    
+    i++;
+  }
+}
+
+ad_notification_t deserialize_ad(char *msg, ad_notification_t *ad) {
+  int location_in_msg = 0;
+  int i = 0;
+  int reading_service_name = 0;
+  int reading_name = 0;
+  int reading_value = 0;
+
+  while(msg[i] != '\0') {
+    if (msg[i] == '#') {
+      location_in_msg ++;
+    }
+    if (location_in_msg == 1) {
+      reading_service_name = 1;
+      continue;
+    }
+    else if (location_in_msg == 2) {
+      reading_service_name = 0;
+      reading_name = 1;
+      continue;
+    }
+    else if (location_in_msg == 3) {
+      reading_name = 0;
+      reading_value = 1;
+      continue;
+    }
+
+    if (reading_service_name == 1) {
+      strcat(ad->service_name, msg[i]);
+    }
+    else if (reading_name == 1) {
+      strcat(ad->name, msg[i]);
+    }
+    else if (reading_value == 1) {
+      strcat(ad->value, msg[i]);
+    }
   }
 }
 
@@ -256,8 +383,7 @@ int zcs_listen_ad(char *name, zcs_cb_f cback) {
   zcs_node_t *current = local_registry->head;
   while (current != NULL) {
     if (strcmp(current->name, name) == 0) {
-      ad_node_t *ad = (ad_node_t *)malloc(sizeof(ad_node_t));
-      add_ad_node(ad);
+      current->cback = cback;
       return 0;
     }
     current = current->next;
@@ -329,33 +455,62 @@ void run_receive_service_message(){
       // Receive the message
       multicast_receive(m, msg, sizeof(msg));
 
-      // Check the message type
-      if (strcmp(msg, NOTIFICATION) == 0) {
+      int header = deserialize_header(msg);
+
+      // NOTIFICATION message
+      if (header == NOTIFICATION) {
+        int node_exists = 0;
+
         // Deserialize the message and get the name of the node and create a new node in the local registry
         zcs_node_t *node = (zcs_node_t *)malloc(sizeof(zcs_node_t));
-        deserialize_notification(msg, node);
-        add_node(node);
-        node->status = 1;
-        // This may be unnecessary
-        node->hearbeat_time = time(NULL);
+        deserialize_notification(msg, node);      
 
-      }
-      else if(strcmp(msg, ADD)){
-        // Deserialize the message and get the name of the node
+        // Check if the node is in local_registry
+        zcs_node_t *current = local_registry->head;
 
-        // Check if the node is in the ad_list
-        ad_node_t *current = ad_list->head;
         while (current != NULL) {
-          if (strcmp(current->name, name) == 0) {
+          if (strcmp(current->name, node->name) == 0) {
+            node_exists = 1;
+            // Update the status of the node
+            current->status = 1;
+            // THis may not be necessary
+            current->hearbeat_time = time(NULL);
+          }
+          current = current->next;
+        }
+
+        // If the node is not in the local_registry, then add it
+        if (node_exists == 0) {
+          node->status = 1;
+          node->hearbeat_time = time(NULL);
+          add_node(node);
+        }
+        else {
+          // If the node already exists free the memory
+          free(node);
+        }
+      }
+      // AD message
+      else if(header == AD){
+        //  Create new AD notification
+        ad_notification_t *ad = (ad_notification_t *)malloc(sizeof(ad_notification_t));
+
+        // Deserialize the message and get the name of the node
+        deserialize_ad(msg, ad);
+
+        zcs_node_t *current = local_registry->head;
+
+        while (current != NULL) {
+          if (strcmp(current->name, ad->service_name) == 0) {
             // Set the call back function of the node
-            current->cback(name, value);
+            current->cback(ad->name, ad->value);
           }
           current = current->next;
         }
       }
-      else if(strcmp(msg, HEARTBEAT)){
+      else if(header == HEARTBEAT){
         // Deserialize the message and get the name of the node
-
+        char *name = deserialize_heartbeat(msg);
         // Update the status of the node
         zcs_node_t *current = local_registry->head;
         while (current != NULL) {
@@ -378,8 +533,9 @@ void run_receive_discovery_message() {
     if (rc > 0) {
       char *msg = (char *)malloc(sizeof(char) * 1024);
       multicast_receive(m, msg, sizeof(msg));
+      int header = deserialize_header(msg);
       // If the incoming message is a DISCOVERY message, then send a NOTIFICATION message
-      if (strcmp(msg, DISCOVERY) == 0) {
+      if (header == DISCOVERY) {
         char *notification = (char *)malloc(sizeof(char) * 1024);
         serialize_notification(notification, local_registry->head);
         int sent = multicast_send(m, notification, sizeof(notification));
