@@ -32,7 +32,6 @@ int validate_message_type(int type) {
 }
 
 typedef struct _zcs_node_t {
-  // struct sockaddr_in address;
   char *name;
   enum Status status;
   time_t hearbeat_time;
@@ -46,12 +45,6 @@ typedef struct _node_list_t {
   zcs_node_t *tail;
 } node_list_t;
 
-typedef struct ad_node {
-  char *name;
-  zcs_cb_f cback;
-  struct ad_node *next;
-} ad_node_t;
-
 typedef struct up_down_log {
   char log_entry[69];
   struct up_down_log *next;
@@ -63,11 +56,6 @@ typedef struct _log_list {
   up_down_log_t *tail;
   int current_size;
 } log_list_t;
-
-typedef struct ad_list {
-  ad_node_t *head;
-  ad_node_t *tail;
-} ad_list_t;
 
 typedef struct ad_notification {
   char *service_name;
@@ -81,7 +69,6 @@ log_list_t *log_list;
 char *service_name;
 zcs_attribute_t *attribute_array;
 int num_attr;
-ad_list_t *ad_list;
 int STARTED = 0;
 int INITIALIZED = 0;
 int TYPE_OF_PROGRAM;
@@ -160,16 +147,6 @@ zcs_node_t *find_node_by_name(char *name) {
   return NULL;
 }
 
-void add_ad_node(ad_node_t *node) {
-  if (ad_list->head == NULL) {
-    ad_list->head = node;
-    ad_list->tail = node;
-  } else {
-    ad_list->tail->next = node;
-    ad_list->tail = node;
-  }
-}
-
 void copy_array(const zcs_attribute_t given_attributes[],
                 zcs_attribute_t **local_attribute_array, int num) {
   *local_attribute_array = malloc(num * sizeof(zcs_attribute_t));
@@ -183,6 +160,7 @@ void copy_array(const zcs_attribute_t given_attributes[],
          num * sizeof(zcs_attribute_t));
 }
 
+
 void update_status(zcs_node_t *node, enum Status status) {
   enum Status old_status = node->status;
   if (old_status != status) {
@@ -194,120 +172,6 @@ void update_status(zcs_node_t *node, enum Status status) {
   }
 }
 
-// Deserialize the header of the message
-int deserialize_header(char *msg) {
-  int i = 0;
-  char *header_str = (char *)malloc(sizeof(char) * 64);
-  strcpy(header_str, "");
-  int header;
-  while (msg[i] != '#') {
-    strcat(header_str, &msg[i]);
-    i++;
-  }
-  header = atoi(header_str);
-  return header;
-}
-
-char *deserialize_heartbeat(char *msg) {
-  // Deserialize the message and get the name of the node
-  char *name = (char *)malloc(sizeof(char) * 64);
-  strcpy(name, "");
-  int i = 0;
-  int past_header = 0;
-  // DOUBLE CHECK THAT SENDTO SENDS A MESSAGE WITH A NULL TETMINATOR
-  while (msg[i] != '\0') {
-    if (msg[i] == '#') {
-      past_header = 1;
-    }
-    if (past_header == 1) {
-      strcat(name, &msg[i]);
-    }
-    i++;
-  }
-  return name;
-}
-
-void deserialize_notification(char *msg, zcs_node_t *node) {
-  printf("Attempting to deserialize notification");
-  int location_in_msg = 0;
-  int i = 0;
-  int reading_key = 0;
-  int reading_value = 0;
-  int reading_name = 0;
-  // Start nume attributes at -1 so that the first attribute is at 0
-  int num_attributes = -1;
-
-  // while (msg[i] != '\0') {
-  //
-  //   // If the message is a # then we are at a new location in the message
-  //   if (msg[i] == '#') {
-  //     location_in_msg++;
-  //     // If the location is 1 then we are reading the name of the node
-  //     if (location_in_msg == 1) {
-  //       reading_name = 1;
-  //     }
-  //     // After the second #, we are reading the key and value of the
-  //     attributes else if (location_in_msg >= 2) {
-  //       reading_name = 0;
-  //       reading_key = 1;
-  //       reading_value = 0;
-  //       num_attributes++;
-  //     }
-  //     i++;
-  //     continue;
-  //   } else if (msg[i] == ';') {
-  //     reading_key = 0;
-  //     reading_value = 1;
-  //     i++;
-  //     continue;
-  //   }
-  //
-  //   if (reading_name == 1) {
-  //     strcat(node->name, &msg[i]);
-  //     i++;
-  //     continue;
-  //   } else if (reading_key == 1) {
-  //     strcpy(node->attriutes[num_attributes]->attr_name, &msg[i]);
-  //   } else if (reading_value == 1) {
-  //     strcpy(node->attriutes[num_attributes]->value, &msg[i]);
-  //   }
-  //   i++;
-  // }
-}
-
-void deserialize_ad(char *msg, ad_notification_t *ad) {
-  int location_in_msg = 0;
-  int i = 0;
-  int reading_service_name = 0;
-  int reading_name = 0;
-  int reading_value = 0;
-
-  while (msg[i] != '\0') {
-    if (msg[i] == '#') {
-      location_in_msg++;
-    }
-    if (location_in_msg == 1) {
-      reading_service_name = 1;
-      continue;
-    } else if (location_in_msg == 2) {
-      reading_service_name = 0;
-      reading_name = 1;
-      continue;
-    } else if (location_in_msg == 3) {
-      reading_name = 0;
-      reading_value = 1;
-      continue;
-    }
-
-    if (reading_service_name == 1) {
-      strcat(ad->service_name, &msg[i]);
-    } else if (reading_name == 1) {
-      strcat(ad->name, &msg[i]);
-    } else if (reading_value == 1) {
-      strcat(ad->value, &msg[i]);
-    }
-  }
-}
 
 char *create_discovery_msg() {
   size_t len = snprintf(NULL, 0, "%d#", DISCOVERY) + 1;
@@ -427,7 +291,7 @@ void handle_heartbeat(char *token) {
   update_status(node, UP);
 }
 
-void handle_ad(char *token) {
+void handle_ad() {
   if (TYPE_OF_PROGRAM != ZCS_APP_TYPE) {
     return;
   }
@@ -452,7 +316,7 @@ void handle_ad(char *token) {
   return;
 }
 
-void handle_disc(char *token) {
+void handle_disc() {
   if (TYPE_OF_PROGRAM != ZCS_SERVICE_TYPE) {
     return;
   }
@@ -485,10 +349,10 @@ void handle_msg(char *msg) {
     handle_notification(token);
     break;
   case DISCOVERY:
-    handle_disc(token);
+    handle_disc();
     break;
   case AD:
-    handle_ad(token);
+    handle_ad();
     break;
   case HEARTBEAT:
     handle_heartbeat(token);
@@ -512,11 +376,11 @@ void *run_receive_service_message() {
     if (rc > 0) {
       char *msg = (char *)malloc(sizeof(char) * 1024);
       // Receive the message
+
       multicast_receive(m, msg, 1024);
       handle_msg(msg);
     }
   }
-
   return 0;
 }
 
@@ -556,8 +420,10 @@ void *run_send_heartbeat() {
   return 0;
 }
 
+
 void *run_heartbeat_checker() {
   // Check the heartbeat count of all the nodes every 5 seconds
+
   while (1) {
     sleep(6);
     zcs_node_t *current = local_registry->head;
@@ -809,7 +675,6 @@ int zcs_shutdown() {
 
   // Free memory
   free(local_registry);
-  free(ad_list);
 
   printf("Service shut down\n");
 
