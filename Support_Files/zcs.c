@@ -1,6 +1,5 @@
 #include "zcs.h"
 #include "multicast.h"
-#include <cstdio>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -80,24 +79,25 @@ void add_ad_node(ad_node_t *node) {
   }
 }
 
+
+
 // Deserialize the header of the message
 int deserialize_header(char *msg) {
   int i = 0;
   char *header_str = (char *)malloc(sizeof(char) * 64);
   int header = '\0';
   while (msg[i] != '#') {
-    strcat(header_str, msg[i]);
+    strcat(header_str, &msg[i]);
     i++;
   }
   header = atoi(header_str);
   return header;
 }
 
-
-char* deserialize_heartbeat(char *msg){
+char *deserialize_heartbeat(char *msg) {
   // Deserialize the message and get the name of the node
   char *name = (char *)malloc(sizeof(char) * 64);
-  name= '\0';
+  name = '\0';
   int i = 0;
   int past_header = 0;
   // DOUBLE CHECK THAT SENDTO SENDS A MESSAGE WITH A NULL TETMINATOR
@@ -106,7 +106,7 @@ char* deserialize_heartbeat(char *msg){
       past_header = 1;
     }
     if (past_header == 1) {
-      strcat(name, msg[i]);
+      strcat(name, &msg[i]);
     }
     i++;
   }
@@ -114,7 +114,7 @@ char* deserialize_heartbeat(char *msg){
   return name;
 }
 
-zcs_node_t deserialize_notification(char *msg, zcs_node_t *node){
+zcs_node_t deserialize_notification(char *msg, zcs_node_t *node) {
   int location_in_msg = 0;
   int i = 0;
   int reading_key = 0;
@@ -127,37 +127,34 @@ zcs_node_t deserialize_notification(char *msg, zcs_node_t *node){
 
     // If the message is a # then we are at a new location in the message
     if (msg[i] == '#') {
-      location_in_msg ++;
+      location_in_msg++;
       // If the location is 1 then we are reading the name of the node
       if (location_in_msg == 1) {
         reading_name = 1;
       }
       // After the second #, we are reading the key and value of the attributes
-      else if (location_in_msg >= 2){
+      else if (location_in_msg >= 2) {
         reading_name = 0;
         reading_key = 1;
         reading_value = 0;
         num_attributes++;
       }
       continue;
-    }
-    else if (msg[i] == ';') {
+    } else if (msg[i] == ';') {
       reading_key = 0;
       reading_value = 1;
       continue;
     }
-    
+
     if (reading_name == 1) {
-      strcat(node->name, msg[i]);
+      strcat(node->name, &msg[i]);
       continue;
+    } else if (reading_key == 1) {
+      strcpy(node->attriutes[num_attributes]->attr_name, &msg[i]);
+    } else if (reading_value == 1) {
+      strcpy(node->attriutes[num_attributes]->value, &msg[i]);
     }
-    else if (reading_key == 1) {
-      strcpy(node->attriutes[num_attributes]->attr_name, msg[i]);
-    }
-    else if (reading_value == 1) {
-      strcpy(node->attriutes[num_attributes]->value, msg[i]);
-    }
-    
+
     i++;
   }
 }
@@ -169,33 +166,29 @@ ad_notification_t deserialize_ad(char *msg, ad_notification_t *ad) {
   int reading_name = 0;
   int reading_value = 0;
 
-  while(msg[i] != '\0') {
+  while (msg[i] != '\0') {
     if (msg[i] == '#') {
-      location_in_msg ++;
+      location_in_msg++;
     }
     if (location_in_msg == 1) {
       reading_service_name = 1;
       continue;
-    }
-    else if (location_in_msg == 2) {
+    } else if (location_in_msg == 2) {
       reading_service_name = 0;
       reading_name = 1;
       continue;
-    }
-    else if (location_in_msg == 3) {
+    } else if (location_in_msg == 3) {
       reading_name = 0;
       reading_value = 1;
       continue;
     }
 
     if (reading_service_name == 1) {
-      strcat(ad->service_name, msg[i]);
-    }
-    else if (reading_name == 1) {
-      strcat(ad->name, msg[i]);
-    }
-    else if (reading_value == 1) {
-      strcat(ad->value, msg[i]);
+      strcat(ad->service_name, &msg[i]);
+    } else if (reading_name == 1) {
+      strcat(ad->name, &msg[i]);
+    } else if (reading_value == 1) {
+      strcat(ad->value, &msg[i]);
     }
   }
 }
@@ -263,6 +256,147 @@ char *create_ad_msg(char *ad_name, char *ad_value) {
 }
 
 /*
+  Help functions
+*/
+
+void run_receive_service_message() {
+  while (1) {
+    // Check for messages
+    int rc = multicast_check_receive(m);
+
+    // If there is a message, then process it
+    if (rc > 0) {
+      char *msg = (char *)malloc(sizeof(char) * 1024);
+      // Receive the message
+      multicast_receive(m, msg, sizeof(msg));
+
+      int header = deserialize_header(msg);
+
+      // NOTIFICATION message
+      if (header == NOTIFICATION) {
+        int node_exists = 0;
+
+        // Deserialize the message and get the name of the node and create a new
+        // node in the local registry
+
+        zcs_node_t *node = (zcs_node_t *)malloc(sizeof(zcs_node_t));
+        deserialize_notification(msg, node);
+
+        // Check if the node is in local_registry
+        zcs_node_t *current = local_registry->head;
+
+        while (current != NULL) {
+          if (strcmp(current->name, node->name) == 0) {
+            node_exists = 1;
+            // Update the status of the node
+            current->status = 1;
+            // THis may not be necessary
+            current->hearbeat_time = time(NULL);
+          }
+          current = current->next;
+        }
+
+        // If the node is not in the local_registry, then add it
+        if (node_exists == 0) {
+          node->status = 1;
+          node->hearbeat_time = time(NULL);
+          add_node(node);
+        } else {
+          // If the node already exists free the memory
+          free(node);
+        }
+      }
+      // AD message
+      else if (header == AD) {
+        //  Create new AD notification
+        ad_notification_t *ad =
+            (ad_notification_t *)malloc(sizeof(ad_notification_t));
+
+        // Deserialize the message and get the name of the node
+        deserialize_ad(msg, ad);
+
+        zcs_node_t *current = local_registry->head;
+
+        while (current != NULL) {
+          if (strcmp(current->name, ad->service_name) == 0) {
+            // Set the call back function of the node
+            current->cback(ad->name, ad->value);
+          }
+          current = current->next;
+        }
+
+      } else if (header == HEARTBEAT) {
+
+        // Deserialize the message and get the name of the node
+        char *name = deserialize_heartbeat(msg);
+        // Update the status of the node
+        zcs_node_t *current = local_registry->head;
+        while (current != NULL) {
+          if (strcmp(current->name, name) == 0) {
+            current->status = 1;
+            current->hearbeat_time = time(NULL);
+          }
+          current = current->next;
+        }
+      }
+    }
+  }
+}
+
+void run_receive_discovery_message() {
+  while (stopThread == 0) {
+    // Continually check for DISCOVERY messages
+    int rc = multicast_check_receive(m);
+    if (rc > 0) {
+      char *msg = (char *)malloc(sizeof(char) * 1024);
+      multicast_receive(m, msg, sizeof(msg));
+
+      int header = deserialize_header(msg);
+      // If the incoming message is a DISCOVERY message, then send a
+      // NOTIFICATION message
+      if (header == DISCOVERY) {
+
+        // char *notification = (char *)malloc(sizeof(char) * 1024);
+        // serialize_notification(notification, local_registry->head);
+        char *notification = create_notification_msg();
+        int sent = multicast_send(m, notification, sizeof(notification));
+        if (sent < 0) {
+          return -1;
+        }
+      }
+    }
+  }
+}
+
+void run_send_heartbeat() {
+  while (stopThread == 0) {
+    sleep(3);
+    // Continually send HEARTBEAT messages
+    char *heartbeat = create_heartbeat_msg();
+    int sent = multicast_send(m, heartbeat, sizeof(heartbeat));
+    if (sent < 0) {
+      return -1;
+    }
+  }
+}
+
+void run_heartbeat_service() {
+  // Check the heartbeat count of all the nodes every 5 seconds
+  while (1) {
+    sleep(6);
+    zcs_node_t *current = local_registry->head;
+    while (current != NULL) {
+      // If the node heartbeat count doesn't equal the required heartbeat count,
+      // then set the status to DOWN
+      if ((time(NULL) - current->hearbeat_time) > 3) {
+        current->status = 0;
+      }
+      current = current->next;
+    }
+  }
+}
+
+/*
 This initializes the ZCS library. This library function must be called before
 issuing any other calls to the library. It sets up the parameters and performs
 the initializations necessary for the library to work.
@@ -294,7 +428,8 @@ int zcs_init(int type) {
     int heartbeat_thread = pthread_create(&tid, NULL, run_heartbeat_service, m);
 
     // Send a DISCOVERY message to the network
-    int disc = multicast_send(m, DISCOVERY, sizeof(DISCOVERY));
+    char *disc_msg = create_discovery_msg();
+    int disc = multicast_send(m, disc_msg, sizeof(disc_msg));
     if (disc < 0) {
       return -1;
     }
@@ -349,7 +484,8 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
   multicast_setup_recv(m);
 
   // Send a NOTIFICATION message to the network
-  int sent = multicast_send(m, NOTIFICATION, sizeof(NOTIFICATION));
+  char *notification = create_notification_msg();
+  int sent = multicast_send(m, notification, sizeof(notification));
   if (sent < 0) {
     return -1;
   }
@@ -383,7 +519,8 @@ int zcs_post_ad(char *ad_name, char *ad_value) {
   // Send an ADD message to the network
 
   // Needs a bit of work to repeat attempts
-  int sent = multicast_send(m, AD, sizeof(AD));
+  char *ad_msg = create_ad_msg(ad_name, ad_value);
+  int sent = multicast_send(m, ad_msg, sizeof(ad_msg));
   if (sent < 0) {
     return -1;
   }
@@ -468,7 +605,7 @@ int zcs_shutdown() {
   }
 
   // Close the multicast socket
-  multicast_close(m);
+  multicast_destroy(m);
 
   // Set global var so that the receive thread can stop
   stopThread = 1;
@@ -485,7 +622,7 @@ This function prints the node UP and DOWN logs. That is, every time a node fails
 (goes down) the observing node makes a note of that event in its log. Similarly,
 every time a node boots up (comes up) the observing node makes a note. This
 function prints the log that is maintained at the local node. The log can be
-truncated once it reaches a predefined length in size or time. There is no
+tcloseruncated once it reaches a predefined length in size or time. There is no
 return value for this function.
 */
 void zcs_log() {
@@ -500,143 +637,3 @@ void zcs_log() {
   }
 }
 
-/*
-  Help functions
-*/
-
-void run_receive_service_message() {
-  while (1) {
-    // Check for messages
-    int rc = multicast_check_receive(m);
-
-    // If there is a message, then process it
-    if (rc > 0) {
-      char *msg = (char *)malloc(sizeof(char) * 1024);
-      // Receive the message
-      multicast_receive(m, msg, sizeof(msg));
-
-
-      int header = deserialize_header(msg);
-
-      // NOTIFICATION message
-      if (header == NOTIFICATION) {
-        int node_exists = 0;
-
-        // Deserialize the message and get the name of the node and create a new node in the local registry
-
-        zcs_node_t *node = (zcs_node_t *)malloc(sizeof(zcs_node_t));
-        deserialize_notification(msg, node);      
-
-
-        // Check if the node is in local_registry
-        zcs_node_t *current = local_registry->head;
-
-
-        while (current != NULL) {
-          if (strcmp(current->name, node->name) == 0) {
-            node_exists = 1;
-            // Update the status of the node
-            current->status = 1;
-            // THis may not be necessary
-            current->hearbeat_time = time(NULL);
-          }
-          current = current->next;
-        }
-
-        // If the node is not in the local_registry, then add it
-        if (node_exists == 0) {
-          node->status = 1;
-          node->hearbeat_time = time(NULL);
-          add_node(node);
-        }
-        else {
-          // If the node already exists free the memory
-          free(node);
-        }
-      }
-      // AD message
-      else if(header == AD){
-        //  Create new AD notification
-        ad_notification_t *ad = (ad_notification_t *)malloc(sizeof(ad_notification_t));
-
-        // Deserialize the message and get the name of the node
-        deserialize_ad(msg, ad);
-
-        zcs_node_t *current = local_registry->head;
-
-        while (current != NULL) {
-          if (strcmp(current->name, ad->service_name) == 0) {
-            // Set the call back function of the node
-            current->cback(ad->name, ad->value);
-          }
-          current = current->next;
-        }
-
-      }
-      else if(header == HEARTBEAT){
-
-        // Deserialize the message and get the name of the node
-        char *name = deserialize_heartbeat(msg);
-        // Update the status of the node
-        zcs_node_t *current = local_registry->head;
-        while (current != NULL) {
-          if (strcmp(current->name, name) == 0) {
-            current->status = 1;
-            current->hearbeat_time = time(NULL);
-          }
-          current = current->next;
-        }
-      }
-    }
-  }
-}
-
-void run_receive_discovery_message() {
-  while (stopThread == 0) {
-    // Continually check for DISCOVERY messages
-    int rc = multicast_check_receive(m);
-    if (rc > 0) {
-      char *msg = (char *)malloc(sizeof(char) * 1024);
-      multicast_receive(m, msg, sizeof(msg));
-
-      int header = deserialize_header(msg);
-      // If the incoming message is a DISCOVERY message, then send a NOTIFICATION message
-      if (header == DISCOVERY) {
-
-        char *notification = (char *)malloc(sizeof(char) * 1024);
-        serialize_notification(notification, local_registry->head);
-        int sent = multicast_send(m, notification, sizeof(notification));
-        if (sent < 0) {
-          return -1;
-        }
-      }
-    }
-  }
-}
-
-void run_send_heartbeat() {
-  while (stopThread == 0) {
-    sleep(3);
-    // Continually send HEARTBEAT messages
-    int sent = multicast_send(m, msg, sizeof(msg));
-    if (sent < 0) {
-      return -1;
-    }
-  }
-}
-
-void run_heartbeat_service() {
-  // Check the heartbeat count of all the nodes every 5 seconds
-  while (1) {
-    sleep(6);
-    zcs_node_t *current = local_registry->head;
-    while (current != NULL) {
-      // If the node heartbeat count doesn't equal the required heartbeat count,
-      // then set the status to DOWN
-      if ((time(NULL) - current->hearbeat_time) > 3) {
-        current->status = 0;
-      }
-      current = current->next;
-    }
-  }
-}
