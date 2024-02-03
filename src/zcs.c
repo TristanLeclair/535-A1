@@ -25,6 +25,8 @@ enum Msg_type {
   MAX_MESSAGE_TYPE
 };
 
+enum Status { DOWN, UP };
+
 int validate_message_type(int type) {
   return (type >= MIN_TYPE_NUMBER && type < MAX_MESSAGE_TYPE);
 }
@@ -32,11 +34,11 @@ int validate_message_type(int type) {
 typedef struct _zcs_node_t {
   // struct sockaddr_in address;
   char *name;
-  int status; // 0 for down, 1 for up
+  enum Status status;
   time_t hearbeat_time;
   zcs_cb_f cback;
   struct _zcs_node_t *next;
-  zcs_attribute_t *attributes[];
+  zcs_attribute_t attributes[10];
 } zcs_node_t;
 
 typedef struct _node_list_t {
@@ -49,6 +51,18 @@ typedef struct ad_node {
   zcs_cb_f cback;
   struct ad_node *next;
 } ad_node_t;
+
+typedef struct up_down_log {
+  char log_entry[69];
+  struct up_down_log *next;
+} up_down_log_t;
+
+const int MAX_LOG_SIZE = 50;
+typedef struct _log_list {
+  up_down_log_t *head;
+  up_down_log_t *tail;
+  int current_size;
+} log_list_t;
 
 typedef struct ad_list {
   ad_node_t *head;
@@ -63,6 +77,7 @@ typedef struct ad_notification {
 
 mcast_t *m;
 node_list_t *local_registry;
+log_list_t *log_list;
 char *service_name;
 zcs_attribute_t *attribute_array;
 int num_attr;
@@ -84,6 +99,51 @@ void add_node(zcs_node_t *node) {
     local_registry->tail->next = node;
     local_registry->tail = node;
   }
+}
+
+void add_log(up_down_log_t *log) {
+  if (log_list == NULL) {
+    log_list = (log_list_t *)malloc(sizeof(log_list_t));
+  }
+  if (log_list->head == NULL) {
+    log_list->head = log;
+    log_list->tail = log;
+    log_list->current_size = 1;
+  } else {
+    log_list->tail->next = log;
+    log_list->tail = log;
+    log_list->current_size++;
+
+    if (log_list->current_size > MAX_LOG_SIZE) {
+      up_down_log_t *to_delete = log_list->head;
+      log_list->head = to_delete->next;
+      free(to_delete->log_entry);
+      free(to_delete);
+    }
+  }
+}
+
+void create_log(char log[69]) {
+  up_down_log_t *log_object = (up_down_log_t *)malloc(sizeof(up_down_log_t));
+  strncpy(log_object->log_entry, log, 69);
+
+  add_log(log_object);
+}
+
+char *status_to_text(enum Status status) {
+  switch (status) {
+  case UP:
+    return "UP";
+  case DOWN:
+    return "DOWN";
+  }
+}
+
+void create_up_down_log(char *service_name, enum Status status) {
+  char *status_log = status_to_text(status);
+  char buffer[69];
+  snprintf(buffer, 69, "%s: %s", service_name, status_log);
+  create_log(buffer);
 }
 
 zcs_node_t *find_node_by_name(char *name) {
@@ -121,6 +181,17 @@ void copy_array(const zcs_attribute_t given_attributes[],
 
   memcpy(*local_attribute_array, given_attributes,
          num * sizeof(zcs_attribute_t));
+}
+
+void update_status(zcs_node_t *node, enum Status status) {
+  enum Status old_status = node->status;
+  if (old_status != status) {
+    create_up_down_log(node->name, status);
+    node->status = status;
+  }
+  if (status == UP) {
+    node->hearbeat_time = time(NULL);
+  }
 }
 
 // Deserialize the header of the message
@@ -306,20 +377,24 @@ void handle_notification(char *token) {
     return;
   }
   token = strtok(NULL, "#");
+  if (token == NULL) {
+    // TODO: handle service name empty error
+  }
   zcs_node_t *node = find_node_by_name(token);
 
   if (node != NULL) {
-    node->status = 1;
-    node->hearbeat_time = time(NULL);
+    update_status(node, UP);
     return;
   }
 
   node = (zcs_node_t *)malloc(sizeof(zcs_node_t));
   node->name = token;
-  node->status = 1;
-  node->hearbeat_time = time(NULL);
+  update_status(node, UP);
 
   token = strtok(NULL, "#");
+  if (token == NULL) {
+    // TODO: handle attributes empty
+  }
   int i = 0;
   while (token != NULL) {
     char *kv_separator = strchr(token, ';');
@@ -328,11 +403,10 @@ void handle_notification(char *token) {
     }
     *kv_separator = '\0';
 
-    node->attributes[i] = (zcs_attribute_t *)malloc(sizeof(zcs_attribute_t));
-    strncpy(node->attributes[i]->attr_name, token,
-            sizeof(node->attributes[i]->attr_name));
-    strncpy(node->attributes[i]->value, kv_separator + 1,
-            sizeof(node->attributes[i]->value));
+    strncpy(node->attributes[i].attr_name, token,
+            sizeof(node->attributes[i].attr_name));
+    strncpy(node->attributes[i].value, kv_separator + 1,
+            sizeof(node->attributes[i].value));
 
     token = strtok(NULL, "#");
     i++;
@@ -350,9 +424,7 @@ void handle_heartbeat(char *token) {
   zcs_node_t *node = find_node_by_name(token);
   if (node == NULL)
     return;
-
-  node->status = 1;
-  node->hearbeat_time = time(NULL);
+  update_status(node, UP);
 }
 
 void handle_ad(char *token) {
@@ -372,6 +444,10 @@ void handle_ad(char *token) {
     return;
   }
 
+  zcs_cb_f callback = node->cback;
+  if (callback == NULL)
+    return;
+
   node->cback(ad->name, ad->value);
   return;
 }
@@ -382,11 +458,13 @@ void handle_disc(char *token) {
   }
 
   char *notification = create_notification_msg();
-  printf("Sending '%s'\n", notification);
-  int sent = multicast_send(m, notification, sizeof(notification));
+  printf("Sending: '%s'\n", notification);
+  printf("Size of notification: '%lu'\n", strlen(notification));
+  int sent = multicast_send(m, notification, strlen(notification));
 }
 
-void handle_msg(char *msg, size_t msg_len) {
+void handle_msg(char *msg) {
+  printf("Received message: %s\n", msg);
   if (msg == NULL) {
     // TODO: handle error
   }
@@ -434,9 +512,8 @@ void *run_receive_service_message() {
     if (rc > 0) {
       char *msg = (char *)malloc(sizeof(char) * 1024);
       // Receive the message
-      int msg_size = multicast_receive(m, msg, sizeof(msg));
-      printf("Received message: '%s'", msg);
-      handle_msg(msg, msg_size);
+      multicast_receive(m, msg, 1024);
+      handle_msg(msg);
     }
   }
 
@@ -453,9 +530,9 @@ void *run_receive_discovery_message() {
     int rc = multicast_check_receive(m);
     if (rc > 0) {
       char *msg = (char *)malloc(sizeof(char) * 1024);
-      multicast_receive(m, msg, sizeof(msg));
+      multicast_receive(m, msg, 1024);
 
-      handle_msg(msg, sizeof(msg));
+      handle_msg(msg);
     }
   }
   return 0;
@@ -471,7 +548,7 @@ void *run_send_heartbeat() {
     // Continually send HEARTBEAT messages
     char *heartbeat = create_heartbeat_msg();
     printf("Sending: '%s'\n", heartbeat);
-    int sent = multicast_send(m, heartbeat, sizeof(heartbeat));
+    int sent = multicast_send(m, heartbeat, strlen(heartbeat));
     // if (sent < 0) {
     //   return -1;
     // }
@@ -479,7 +556,7 @@ void *run_send_heartbeat() {
   return 0;
 }
 
-void *run_heartbeat_service() {
+void *run_heartbeat_checker() {
   // Check the heartbeat count of all the nodes every 5 seconds
   while (1) {
     sleep(6);
@@ -488,7 +565,7 @@ void *run_heartbeat_service() {
       // If the node heartbeat count doesn't equal the required heartbeat count,
       // then set the status to DOWN
       if ((time(NULL) - current->hearbeat_time) > 3) {
-        current->status = 0;
+        update_status(current, DOWN);
       }
       current = current->next;
     }
@@ -518,6 +595,7 @@ int zcs_init(int type) {
     }
 
     local_registry = malloc(sizeof(node_list_t));
+    log_list = malloc(sizeof(log_list_t));
 
     // Support for receivig messages
     multicast_setup_recv(m);
@@ -528,12 +606,12 @@ int zcs_init(int type) {
       return -1;
     }
 
-    int heartbeat_thread = pthread_create(&tid, NULL, run_heartbeat_service, m);
+    int heartbeat_thread = pthread_create(&tid, NULL, run_heartbeat_checker, m);
 
     // Send a DISCOVERY message to the network
     char *disc_msg = create_discovery_msg();
     printf("Sending: '%s'\n", disc_msg);
-    int disc = multicast_send(m, disc_msg, sizeof(disc_msg));
+    int disc = multicast_send(m, disc_msg, strlen(disc_msg));
     if (disc < 0) {
       return -1;
     }
@@ -541,7 +619,7 @@ int zcs_init(int type) {
   }
   // If the type is ZCS_SERVICE_TYPE, then the node is a discovery node
   else if (TYPE_OF_PROGRAM == ZCS_SERVICE_TYPE) {
-    m = multicast_init("239.1.1.1", 8080, 5000);
+    m = multicast_init("238.1.1.1", 8080, 5000);
 
     if (m == NULL) {
       return -1;
@@ -586,6 +664,7 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
   }
   service_name = name;
   copy_array(attr, &attribute_array, num);
+  num_attr = num;
 
   // Set up message receiving
   multicast_setup_recv(m);
@@ -593,7 +672,7 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
   // Send a NOTIFICATION message to the network
   char *notification = create_notification_msg();
   printf("Sending: '%s'\n", notification);
-  int sent = multicast_send(m, notification, sizeof(notification));
+  int sent = multicast_send(m, notification, strlen(notification));
   if (sent < 0) {
     return -1;
   }
@@ -637,7 +716,7 @@ int zcs_post_ad(char *ad_name, char *ad_value) {
   // Needs a bit of work to repeat attempts
   char *ad_msg = create_ad_msg(ad_name, ad_value);
   printf("Sending: '%s'\n", ad_msg);
-  int sent = multicast_send(m, ad_msg, sizeof(ad_msg));
+  int sent = multicast_send(m, ad_msg, strlen(ad_msg));
   if (sent < 0) {
     return -1;
   }
@@ -658,8 +737,8 @@ int zcs_query(char *attr_name, char *attr_value, char *node_names[],
   int i = 0;
   zcs_node_t *current = local_registry->head;
   while (current != NULL && i < namelen) {
-    if (strcmp(current->attributes[i]->attr_name, attr_name) == 0 &&
-        strcmp(current->attributes[i]->value, attr_value) == 0) {
+    if (strcmp(current->attributes[i].attr_name, attr_name) == 0 &&
+        strcmp(current->attributes[i].value, attr_value) == 0) {
       node_names[i] = current->name;
       i++;
     }
@@ -682,7 +761,7 @@ int zcs_get_attribs(char *name, zcs_attribute_t attr[], int *num) {
   while (current != NULL) {
     if (strcmp(current->name, name) == 0) {
       for (int i = 0; i < *num; i++) {
-        attr[i] = *current->attributes[i];
+        attr[i] = current->attributes[i];
       }
       return 0;
     }
@@ -746,13 +825,10 @@ tcloseruncated once it reaches a predefined length in size or time. There is no
 return value for this function.
 */
 void zcs_log() {
-  zcs_node_t *current = local_registry->head;
+  up_down_log_t *current = log_list->head;
   while (current != NULL) {
-    if (current->status == 0) {
-      printf("%s is DOWN\n", current->name);
-    } else {
-      printf("%s is UP\n", current->name);
-    }
+    printf("%s\n", current->log_entry);
     current = current->next;
   }
+  // fflush(stdout);
 }
