@@ -338,6 +338,9 @@ zcs_node_t *handle_notification(char *token) {
 }
 
 void handle_heartbeat(char *token) {
+  if (TYPE != ZCS_APP_TYPE) {
+    return;
+  }
   zcs_node_t *node = find_node_by_name(token);
   if (node == NULL)
     return;
@@ -347,14 +350,36 @@ void handle_heartbeat(char *token) {
 }
 
 void handle_ad(char *token) {
+  if (TYPE != ZCS_APP_TYPE) {
+    return;
+  }
   ad_notification_t *ad =
       (ad_notification_t *)malloc(sizeof(ad_notification_t));
 
-  // TODO: handle_ad
+  ad->service_name = strtok(NULL, "#");
+  ad->name = strtok(NULL, "#");
+  ad->value = strtok(NULL, "#");
 
+  zcs_node_t *node = find_node_by_name(ad->service_name);
+
+  if (node == NULL) {
+    return;
+  }
+
+  node->cback(ad->name, ad->value);
+  return;
 }
 
-// TODO: handle_disc
+void handle_disc(char *token) {
+  if (TYPE != ZCS_SERVICE_TYPE) {
+    return;
+  }
+
+  char *notification = create_notification_msg();
+  printf("Sending '%s'\n", notification);
+  int sent = multicast_send(m, notification, sizeof(notification));
+
+}
 
 void handle_msg(char *msg, size_t msg_len) {
   if (msg == NULL) {
@@ -491,6 +516,8 @@ void *run_receive_discovery_message() {
     if (rc > 0) {
       char *msg = (char *)malloc(sizeof(char) * 1024);
       multicast_receive(m, msg, sizeof(msg));
+
+      handle_msg(msg, sizeof(msg));
 
       int header = deserialize_header(msg);
       // If the incoming message is a DISCOVERY message, then send a
