@@ -69,6 +69,7 @@ int num_attr;
 ad_list_t *ad_list;
 int STARTED = 0;
 int INITIALIZED = 0;
+int TYPE_OF_PROGRAM;
 
 // Global var to stop thread
 int stopThread = 0;
@@ -94,6 +95,7 @@ zcs_node_t *find_node_by_name(char *name) {
     if (strcmp(current->name, name) == 0) {
       return current;
     }
+    current = current->next;
   }
   return NULL;
 }
@@ -338,6 +340,10 @@ zcs_node_t *handle_notification(char *token) {
 }
 
 void handle_heartbeat(char *token) {
+  if (TYPE_OF_PROGRAM != ZCS_APP_TYPE) {
+    return;
+  }
+  token = strtok(NULL, "#");
   zcs_node_t *node = find_node_by_name(token);
   if (node == NULL)
     return;
@@ -351,7 +357,6 @@ void handle_ad(char *token) {
       (ad_notification_t *)malloc(sizeof(ad_notification_t));
 
   // TODO: handle_ad
-
 }
 
 // TODO: handle_disc
@@ -555,11 +560,12 @@ Otherwise, it returns a -1.
  *
  */
 int zcs_init(int type) {
+  TYPE_OF_PROGRAM = type;
 
   pthread_t tid;
 
   // If the type is ZCS_APP_TYPE, then the node is an application
-  if (type == ZCS_APP_TYPE) {
+  if (TYPE_OF_PROGRAM == ZCS_APP_TYPE) {
     m = multicast_init("239.1.1.1", 5000, 8080);
 
     if (m == NULL) {
@@ -589,7 +595,7 @@ int zcs_init(int type) {
 
   }
   // If the type is ZCS_SERVICE_TYPE, then the node is a discovery node
-  else if (type == ZCS_SERVICE_TYPE) {
+  else if (TYPE_OF_PROGRAM == ZCS_SERVICE_TYPE) {
     m = multicast_init("239.1.1.1", 8080, 5000);
 
     if (m == NULL) {
