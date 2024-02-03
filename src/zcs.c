@@ -346,7 +346,7 @@ void handle_heartbeat(char *token) {
     return;
   }
   token = strtok(NULL, "#");
-  
+
   zcs_node_t *node = find_node_by_name(token);
   if (node == NULL)
     return;
@@ -384,7 +384,6 @@ void handle_disc(char *token) {
   char *notification = create_notification_msg();
   printf("Sending '%s'\n", notification);
   int sent = multicast_send(m, notification, sizeof(notification));
-
 }
 
 void handle_msg(char *msg, size_t msg_len) {
@@ -408,8 +407,10 @@ void handle_msg(char *msg, size_t msg_len) {
     handle_notification(token);
     break;
   case DISCOVERY:
+    handle_disc(token);
     break;
   case AD:
+    handle_ad(token);
     break;
   case HEARTBEAT:
     handle_heartbeat(token);
@@ -455,21 +456,6 @@ void *run_receive_discovery_message() {
       multicast_receive(m, msg, sizeof(msg));
 
       handle_msg(msg, sizeof(msg));
-
-      int header = deserialize_header(msg);
-      // If the incoming message is a DISCOVERY message, then send a
-      // NOTIFICATION message
-      if (header == DISCOVERY) {
-
-        // char *notification = (char *)malloc(sizeof(char) * 1024);
-        // serialize_notification(notification, local_registry->head);
-        char *notification = create_notification_msg();
-        printf("Sending '%s'\n", notification);
-        int sent = multicast_send(m, notification, sizeof(notification));
-        // if (sent < 0) {
-        //   return -1;
-        // }
-      }
     }
   }
   return 0;
