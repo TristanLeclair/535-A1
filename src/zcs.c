@@ -208,7 +208,7 @@ void handle_notification(char *token) {
   while (token != NULL) {
     char *kv_separator = strchr(token, ';');
     if (kv_separator == NULL) {
-      // handle error
+      // TODO: handle error
     }
     *kv_separator = '\0';
 
@@ -230,7 +230,7 @@ void handle_heartbeat(char *token) {
     return;
   }
   token = strtok(NULL, "#");
-  
+
   zcs_node_t *node = find_node_by_name(token);
   if (node == NULL)
     return;
@@ -268,23 +268,22 @@ void handle_disc(char *token) {
   char *notification = create_notification_msg();
   printf("Sending '%s'\n", notification);
   int sent = multicast_send(m, notification, sizeof(notification));
-
 }
 
 void handle_msg(char *msg, size_t msg_len) {
   if (msg == NULL) {
-    // handle error
+    // TODO: handle error
   }
 
   char *token = strtok(msg, "#");
 
   if (token == NULL) {
-    // handle invalid format error
+    // TODO: handle invalid format error
   }
 
   int msg_type;
   if (sscanf(token, "%d", &msg_type) != 1 || !validate_message_type(msg_type)) {
-    // handle errors
+    // TODO: handle errors
   }
 
   switch (msg_type) {
@@ -301,7 +300,7 @@ void handle_msg(char *msg, size_t msg_len) {
     handle_heartbeat(token);
     break;
   default:
-    // handle error
+    // TODO: handle error
     break;
   }
 }
