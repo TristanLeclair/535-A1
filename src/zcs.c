@@ -324,7 +324,7 @@ void handle_notification(char *token) {
   while (token != NULL) {
     char *kv_separator = strchr(token, ';');
     if (kv_separator == NULL) {
-      // handle error
+      // TODO: handle error
     }
     *kv_separator = '\0';
 
@@ -365,18 +365,18 @@ void handle_ad(char *token) {
 
 void handle_msg(char *msg, size_t msg_len) {
   if (msg == NULL) {
-    // handle error
+    // TODO: handle error
   }
 
   char *token = strtok(msg, "#");
 
   if (token == NULL) {
-    // handle invalid format error
+    // TODO: handle invalid format error
   }
 
   int msg_type;
   if (sscanf(token, "%d", &msg_type) != 1 || !validate_message_type(msg_type)) {
-    // handle errors
+    // TODO: handle errors
   }
 
   switch (msg_type) {
@@ -391,7 +391,7 @@ void handle_msg(char *msg, size_t msg_len) {
     handle_heartbeat(token);
     break;
   default:
-    // handle error
+    // TODO: handle error
     break;
   }
 }
@@ -411,76 +411,7 @@ void *run_receive_service_message() {
       // Receive the message
       int msg_size = multicast_receive(m, msg, sizeof(msg));
       printf("Received message: '%s'", msg);
-
-      int header = deserialize_header(msg);
-
-      // NOTIFICATION message
-      if (header == NOTIFICATION) {
-        int node_exists = 0;
-
-        // Deserialize the message and get the name of the node and create a new
-        // node in the local registry
-
-        zcs_node_t *node = (zcs_node_t *)malloc(sizeof(zcs_node_t));
-        deserialize_notification(msg, node);
-
-        // Check if the node is in local_registry
-        zcs_node_t *current = local_registry->head;
-
-        while (current != NULL) {
-          if (strcmp(current->name, node->name) == 0) {
-            node_exists = 1;
-            // Update the status of the node
-            current->status = 1;
-            // THis may not be necessary
-            current->hearbeat_time = time(NULL);
-          }
-          current = current->next;
-        }
-
-        // If the node is not in the local_registry, then add it
-        if (node_exists == 0) {
-          node->status = 1;
-          node->hearbeat_time = time(NULL);
-          add_node(node);
-        } else {
-          // If the node already exists free the memory
-          free(node);
-        }
-      }
-      // AD message
-      else if (header == AD) {
-        //  Create new AD notification
-        ad_notification_t *ad =
-            (ad_notification_t *)malloc(sizeof(ad_notification_t));
-
-        // Deserialize the message and get the name of the node
-        deserialize_ad(msg, ad);
-
-        zcs_node_t *current = local_registry->head;
-
-        while (current != NULL) {
-          if (strcmp(current->name, ad->service_name) == 0) {
-            // Set the call back function of the node
-            current->cback(ad->name, ad->value);
-          }
-          current = current->next;
-        }
-
-      } else if (header == HEARTBEAT) {
-
-        // Deserialize the message and get the name of the node
-        char *name = deserialize_heartbeat(msg);
-        // Update the status of the node
-        zcs_node_t *current = local_registry->head;
-        while (current != NULL) {
-          if (strcmp(current->name, name) == 0) {
-            current->status = 1;
-            current->hearbeat_time = time(NULL);
-          }
-          current = current->next;
-        }
-      }
+      handle_msg(msg, msg_size);
     }
   }
 
