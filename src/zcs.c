@@ -337,7 +337,24 @@ zcs_node_t *handle_notification(char *token) {
   return node;
 }
 
-void handle_heartbeat(char *token) {}
+void handle_heartbeat(char *token) {
+  zcs_node_t *node = find_node_by_name(token);
+  if (node == NULL)
+    return;
+
+  node->status = 1;
+  node->hearbeat_time = time(NULL);
+}
+
+void handle_ad(char *token) {
+  ad_notification_t *ad =
+      (ad_notification_t *)malloc(sizeof(ad_notification_t));
+
+  // TODO: handle_ad
+
+}
+
+// TODO: handle_disc
 
 void handle_msg(char *msg, size_t msg_len) {
   if (msg == NULL) {
