@@ -1,5 +1,5 @@
-#include "zcs.h"
-#include "multicast.h"
+#include "../include/zcs.h"
+#include "../include/multicast.h"
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -128,6 +128,7 @@ char *deserialize_heartbeat(char *msg) {
 }
 
 void deserialize_notification(char *msg, zcs_node_t *node) {
+  printf("Attempting to deserialize notification");
   int location_in_msg = 0;
   int i = 0;
   int reading_key = 0;
@@ -282,6 +283,7 @@ void* run_receive_service_message() {
       char *msg = (char *)malloc(sizeof(char) * 1024);
       // Receive the message
       multicast_receive(m, msg, sizeof(msg));
+      printf("Received message: '%s'", msg);
 
       int header = deserialize_header(msg);
 
@@ -378,6 +380,7 @@ void* run_receive_discovery_message() {
         // char *notification = (char *)malloc(sizeof(char) * 1024);
         // serialize_notification(notification, local_registry->head);
         char *notification = create_notification_msg();
+        printf("Sending '%s'\n", notification);
         int sent = multicast_send(m, notification, sizeof(notification));
         // if (sent < 0) {
         //   return -1;
@@ -397,6 +400,7 @@ void* run_send_heartbeat() {
     sleep(3);
     // Continually send HEARTBEAT messages
     char *heartbeat = create_heartbeat_msg();
+    printf("Sending: '%s'\n", heartbeat);
     int sent = multicast_send(m, heartbeat, sizeof(heartbeat));
     // if (sent < 0) {
     //   return -1;
@@ -442,6 +446,8 @@ int zcs_init(int type) {
       return -1;
     }
 
+    local_registry = malloc(sizeof(node_list_t));
+
     // Support for receivig messages
     multicast_setup_recv(m);
 
@@ -455,6 +461,7 @@ int zcs_init(int type) {
 
     // Send a DISCOVERY message to the network
     char *disc_msg = create_discovery_msg();
+    printf("Sending: '%s'\n", disc_msg);
     int disc = multicast_send(m, disc_msg, sizeof(disc_msg));
     if (disc < 0) {
       return -1;
@@ -514,6 +521,7 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
 
   // Send a NOTIFICATION message to the network
   char *notification = create_notification_msg();
+  printf("Sending: '%s'\n", notification);
   int sent = multicast_send(m, notification, sizeof(notification));
   if (sent < 0) {
     return -1;
@@ -557,6 +565,7 @@ int zcs_post_ad(char *ad_name, char *ad_value) {
 
   // Needs a bit of work to repeat attempts
   char *ad_msg = create_ad_msg(ad_name, ad_value);
+  printf("Sending: '%s'\n", ad_msg);
   int sent = multicast_send(m, ad_msg, sizeof(ad_msg));
   if (sent < 0) {
     return -1;

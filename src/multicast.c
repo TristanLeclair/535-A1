@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include "multicast.h"
+#include "../include/multicast.h"
 
 mcast_t *multicast_init(char *mcast_addr, int sport, int rport)
 {

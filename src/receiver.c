@@ -1,6 +1,5 @@
-#include "multicast.h"
+#include "../include/multicast.h"
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 
 char buffer[100];
