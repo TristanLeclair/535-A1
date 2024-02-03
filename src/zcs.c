@@ -43,17 +43,6 @@ typedef struct _node_list_t {
   zcs_node_t *tail;
 } node_list_t;
 
-typedef struct ad_node {
-  char *name;
-  zcs_cb_f cback;
-  struct ad_node *next;
-} ad_node_t;
-
-typedef struct ad_list {
-  ad_node_t *head;
-  ad_node_t *tail;
-} ad_list_t;
-
 typedef struct ad_notification {
   char *service_name;
   char *name;
@@ -65,7 +54,6 @@ node_list_t *local_registry;
 char *service_name;
 zcs_attribute_t *attribute_array;
 int num_attr;
-ad_list_t *ad_list;
 int STARTED = 0;
 int INITIALIZED = 0;
 int TYPE_OF_PROGRAM;
@@ -97,16 +85,6 @@ zcs_node_t *find_node_by_name(char *name) {
     current = current->next;
   }
   return NULL;
-}
-
-void add_ad_node(ad_node_t *node) {
-  if (ad_list->head == NULL) {
-    ad_list->head = node;
-    ad_list->tail = node;
-  } else {
-    ad_list->tail->next = node;
-    ad_list->tail = node;
-  }
 }
 
 void copy_array(const zcs_attribute_t given_attributes[],
@@ -614,7 +592,6 @@ int zcs_shutdown() {
 
   // Free memory
   free(local_registry);
-  free(ad_list);
 
   printf("Service shut down\n");
 
