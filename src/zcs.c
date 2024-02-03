@@ -239,7 +239,7 @@ void handle_heartbeat(char *token) {
   node->hearbeat_time = time(NULL);
 }
 
-void handle_ad(char *token) {
+void handle_ad() {
   if (TYPE_OF_PROGRAM != ZCS_APP_TYPE) {
     return;
   }
@@ -260,7 +260,7 @@ void handle_ad(char *token) {
   return;
 }
 
-void handle_disc(char *token) {
+void handle_disc() {
   if (TYPE_OF_PROGRAM != ZCS_SERVICE_TYPE) {
     return;
   }
@@ -291,10 +291,10 @@ void handle_msg(char *msg, size_t msg_len) {
     handle_notification(token);
     break;
   case DISCOVERY:
-    handle_disc(token);
+    handle_disc();
     break;
   case AD:
-    handle_ad(token);
+    handle_ad();
     break;
   case HEARTBEAT:
     handle_heartbeat(token);
@@ -364,7 +364,7 @@ void *run_send_heartbeat() {
 }
 
 void *run_heartbeat_service() {
-  // Check the heartbeat count of all the nodes every 5 seconds
+  // Check the heartbeat count of all the nodes every 6 seconds
   while (1) {
     sleep(6);
     zcs_node_t *current = local_registry->head;
