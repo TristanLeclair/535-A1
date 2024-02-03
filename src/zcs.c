@@ -123,6 +123,8 @@ char *status_to_text(enum Status status) {
     return "UP";
   case DOWN:
     return "DOWN";
+  default:
+    exit(EXIT_FAILURE);
   }
 }
 
@@ -160,7 +162,6 @@ void copy_array(const zcs_attribute_t given_attributes[],
          num * sizeof(zcs_attribute_t));
 }
 
-
 void update_status(zcs_node_t *node, enum Status status) {
   enum Status old_status = node->status;
   if (old_status != status) {
@@ -171,7 +172,6 @@ void update_status(zcs_node_t *node, enum Status status) {
     node->hearbeat_time = time(NULL);
   }
 }
-
 
 char *create_discovery_msg() {
   size_t len = snprintf(NULL, 0, "%d#", DISCOVERY) + 1;
@@ -324,7 +324,7 @@ void handle_disc() {
   char *notification = create_notification_msg();
   printf("Sending: '%s'\n", notification);
   printf("Size of notification: '%lu'\n", strlen(notification));
-  int sent = multicast_send(m, notification, strlen(notification));
+  multicast_send(m, notification, strlen(notification));
 }
 
 void handle_msg(char *msg) {
@@ -412,14 +412,10 @@ void *run_send_heartbeat() {
     // Continually send HEARTBEAT messages
     char *heartbeat = create_heartbeat_msg();
     printf("Sending: '%s'\n", heartbeat);
-    int sent = multicast_send(m, heartbeat, strlen(heartbeat));
-    // if (sent < 0) {
-    //   return -1;
-    // }
+    multicast_send(m, heartbeat, strlen(heartbeat));
   }
   return 0;
 }
-
 
 void *run_heartbeat_checker() {
   // Check the heartbeat count of all the nodes every 5 seconds
@@ -473,15 +469,14 @@ int zcs_init(int type) {
     }
 
     int heartbeat_thread = pthread_create(&tid, NULL, run_heartbeat_checker, m);
+    if (heartbeat_thread != 0) {
+      return -1;
+    }
 
     // Send a DISCOVERY message to the network
     char *disc_msg = create_discovery_msg();
     printf("Sending: '%s'\n", disc_msg);
-    int disc = multicast_send(m, disc_msg, strlen(disc_msg));
-    if (disc < 0) {
-      return -1;
-    }
-
+    multicast_send(m, disc_msg, strlen(disc_msg));
   }
   // If the type is ZCS_SERVICE_TYPE, then the node is a discovery node
   else if (TYPE_OF_PROGRAM == ZCS_SERVICE_TYPE) {
@@ -520,9 +515,6 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
 
   int i = 0;
   while (name[i] != '\0') {
-    if (name[i] > 127 || name[i] < 0) {
-      return -1;
-    }
     i++;
   }
   if (i > 63) {
