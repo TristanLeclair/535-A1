@@ -50,7 +50,7 @@ typedef struct ad_notification {
 mcast_t *m;
 node_list_t *local_registry;
 char *service_name;
-zcs_attribute_t attr[];
+zcs_attribute_t *attribute_array;
 int num_attr;
 ad_list_t *ad_list;
 int STARTED = 0;
@@ -58,6 +58,8 @@ int INITIALIZED = 0;
 
 // Global var to stop thread
 int stopThread = 0;
+
+// Methods
 
 void add_node(zcs_node_t *node) {
   if (local_registry->head == NULL) {
@@ -79,7 +81,18 @@ void add_ad_node(ad_node_t *node) {
   }
 }
 
+void copy_array(const zcs_attribute_t given_attributes[],
+                zcs_attribute_t **local_attribute_array, int num) {
+  *local_attribute_array = malloc(num * sizeof(zcs_attribute_t));
 
+  if (*local_attribute_array == NULL) {
+    fprintf(stderr, "malloc failed\n");
+    exit(EXIT_FAILURE);
+  }
+
+  memcpy(*local_attribute_array, given_attributes,
+         num * sizeof(zcs_attribute_t));
+}
 
 // Deserialize the header of the message
 int deserialize_header(char *msg) {
@@ -220,7 +233,7 @@ char *create_notification_msg() {
   size_t total_len = header_len;
 
   for (int i = 0; i < num_attr; ++i) {
-    total_len += snprintf(NULL, 0, "%s;%s#", attr[i].attr_name, attr[i].value);
+    total_len += snprintf(NULL, 0, "%s;%s#", attribute_array[i].attr_name, attribute_array[i].value);
   }
 
   char *result = malloc(total_len);
@@ -233,9 +246,9 @@ char *create_notification_msg() {
   snprintf(result, header_len, "%d#%s#", type, service_name);
 
   for (int i = 0; i < num_attr; ++i) {
-    strcat(result, attr[i].attr_name);
+    strcat(result, attribute_array[i].attr_name);
     strcat(result, ";");
-    strcat(result, attr[i].value);
+    strcat(result, attribute_array[i].value);
     strcat(result, "#");
   }
 
@@ -479,6 +492,7 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
     return -1;
   }
   service_name = name;
+  copy_array(attr, &attribute_array, num);
 
   // Set up message receiving
   multicast_setup_recv(m);
@@ -636,4 +650,3 @@ void zcs_log() {
     current = current->next;
   }
 }
-
