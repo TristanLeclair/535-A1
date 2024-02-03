@@ -69,6 +69,7 @@ int num_attr;
 ad_list_t *ad_list;
 int STARTED = 0;
 int INITIALIZED = 0;
+int TYPE_OF_PROGRAM;
 
 // Global var to stop thread
 int stopThread = 0;
@@ -94,6 +95,7 @@ zcs_node_t *find_node_by_name(char *name) {
     if (strcmp(current->name, name) == 0) {
       return current;
     }
+    current = current->next;
   }
   return NULL;
 }
@@ -299,31 +301,26 @@ char *create_ad_msg(char *ad_name, char *ad_value) {
   return result;
 }
 
-zcs_node_t *handle_notification(char *token) {
-  zcs_node_t *current = local_registry->head;
-  zcs_node_t *node;
-  bool exists = false;
-
-  while (current != NULL) {
-    if (strcmp(current->name, token) == 0) {
-      exists = true;
-      current->status = 1;
-      current->hearbeat_time = time(NULL);
-      node = current;
-      break;
-    }
-    current = current->next;
+void handle_notification(char *token) {
+  if (TYPE_OF_PROGRAM != ZCS_APP_TYPE) {
+    return;
   }
+  token = strtok(NULL, "#");
+  zcs_node_t *node = find_node_by_name(token);
 
-  if (exists) {
-    return node;
+  if (node != NULL) {
+    node->status = 1;
+    node->hearbeat_time = time(NULL);
+    return;
   }
 
   node = (zcs_node_t *)malloc(sizeof(zcs_node_t));
-  strcpy(node->name, token);
+  node->name = token;
+  node->status = 1;
+  node->hearbeat_time = time(NULL);
 
   token = strtok(NULL, "#");
-  int key_count = 0;
+  int i = 0;
   while (token != NULL) {
     char *kv_separator = strchr(token, ';');
     if (kv_separator == NULL) {
@@ -331,16 +328,25 @@ zcs_node_t *handle_notification(char *token) {
     }
     *kv_separator = '\0';
 
-    // TODO: COPY ATTRIBUTES
-    // strcpy(node->attributes[key_count]->attr_name, token, sizeof(
+    node->attributes[i] = (zcs_attribute_t *)malloc(sizeof(zcs_attribute_t));
+    strncpy(node->attributes[i]->attr_name, token,
+            sizeof(node->attributes[i]->attr_name));
+    strncpy(node->attributes[i]->value, kv_separator + 1,
+            sizeof(node->attributes[i]->value));
+
+    token = strtok(NULL, "#");
+    i++;
   }
-  return node;
+  add_node(node);
+  return;
 }
 
 void handle_heartbeat(char *token) {
-  if (TYPE != ZCS_APP_TYPE) {
+  if (TYPE_OF_PROGRAM != ZCS_APP_TYPE) {
     return;
   }
+  token = strtok(NULL, "#");
+  
   zcs_node_t *node = find_node_by_name(token);
   if (node == NULL)
     return;
@@ -350,7 +356,7 @@ void handle_heartbeat(char *token) {
 }
 
 void handle_ad(char *token) {
-  if (TYPE != ZCS_APP_TYPE) {
+  if (TYPE_OF_PROGRAM != ZCS_APP_TYPE) {
     return;
   }
   ad_notification_t *ad =
@@ -371,7 +377,7 @@ void handle_ad(char *token) {
 }
 
 void handle_disc(char *token) {
-  if (TYPE != ZCS_SERVICE_TYPE) {
+  if (TYPE_OF_PROGRAM != ZCS_SERVICE_TYPE) {
     return;
   }
 
@@ -582,11 +588,12 @@ Otherwise, it returns a -1.
  *
  */
 int zcs_init(int type) {
+  TYPE_OF_PROGRAM = type;
 
   pthread_t tid;
 
   // If the type is ZCS_APP_TYPE, then the node is an application
-  if (type == ZCS_APP_TYPE) {
+  if (TYPE_OF_PROGRAM == ZCS_APP_TYPE) {
     m = multicast_init("239.1.1.1", 5000, 8080);
 
     if (m == NULL) {
@@ -616,7 +623,7 @@ int zcs_init(int type) {
 
   }
   // If the type is ZCS_SERVICE_TYPE, then the node is a discovery node
-  else if (type == ZCS_SERVICE_TYPE) {
+  else if (TYPE_OF_PROGRAM == ZCS_SERVICE_TYPE) {
     m = multicast_init("239.1.1.1", 8080, 5000);
 
     if (m == NULL) {
