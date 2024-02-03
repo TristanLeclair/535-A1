@@ -98,7 +98,8 @@ void copy_array(const zcs_attribute_t given_attributes[],
 int deserialize_header(char *msg) {
   int i = 0;
   char *header_str = (char *)malloc(sizeof(char) * 64);
-  int header = '\0';
+  strcpy(header_str, "");
+  int header;
   while (msg[i] != '#') {
     strcat(header_str, &msg[i]);
     i++;
@@ -110,7 +111,7 @@ int deserialize_header(char *msg) {
 char *deserialize_heartbeat(char *msg) {
   // Deserialize the message and get the name of the node
   char *name = (char *)malloc(sizeof(char) * 64);
-  name = '\0';
+  strcpy(name, "");
   int i = 0;
   int past_header = 0;
   // DOUBLE CHECK THAT SENDTO SENDS A MESSAGE WITH A NULL TETMINATOR
@@ -123,11 +124,10 @@ char *deserialize_heartbeat(char *msg) {
     }
     i++;
   }
-  name[i] = '\0';
   return name;
 }
 
-zcs_node_t deserialize_notification(char *msg, zcs_node_t *node) {
+void deserialize_notification(char *msg, zcs_node_t *node) {
   int location_in_msg = 0;
   int i = 0;
   int reading_key = 0;
@@ -172,7 +172,7 @@ zcs_node_t deserialize_notification(char *msg, zcs_node_t *node) {
   }
 }
 
-ad_notification_t deserialize_ad(char *msg, ad_notification_t *ad) {
+void deserialize_ad(char *msg, ad_notification_t *ad) {
   int location_in_msg = 0;
   int i = 0;
   int reading_service_name = 0;
@@ -272,7 +272,7 @@ char *create_ad_msg(char *ad_name, char *ad_value) {
   Help functions
 */
 
-void run_receive_service_message() {
+void* run_receive_service_message() {
   while (1) {
     // Check for messages
     int rc = multicast_check_receive(m);
@@ -354,9 +354,15 @@ void run_receive_service_message() {
       }
     }
   }
+
+  return 0;
 }
 
-void run_receive_discovery_message() {
+/*
+  Should this function return an int if for success or fail?
+  Should the thread be stopped in this function?
+*/
+void* run_receive_discovery_message() {
   while (stopThread == 0) {
     // Continually check for DISCOVERY messages
     int rc = multicast_check_receive(m);
@@ -373,27 +379,33 @@ void run_receive_discovery_message() {
         // serialize_notification(notification, local_registry->head);
         char *notification = create_notification_msg();
         int sent = multicast_send(m, notification, sizeof(notification));
-        if (sent < 0) {
-          return -1;
-        }
+        // if (sent < 0) {
+        //   return -1;
+        // }
       }
     }
   }
+  return 0;
 }
 
-void run_send_heartbeat() {
+/*
+  Should this function return an int if for success or fail?
+  Should the thread be stopped in this function?
+*/
+void* run_send_heartbeat() {
   while (stopThread == 0) {
     sleep(3);
     // Continually send HEARTBEAT messages
     char *heartbeat = create_heartbeat_msg();
     int sent = multicast_send(m, heartbeat, sizeof(heartbeat));
-    if (sent < 0) {
-      return -1;
-    }
+    // if (sent < 0) {
+    //   return -1;
+    // }
   }
+  return 0;
 }
 
-void run_heartbeat_service() {
+void* run_heartbeat_service() {
   // Check the heartbeat count of all the nodes every 5 seconds
   while (1) {
     sleep(6);
@@ -407,6 +419,7 @@ void run_heartbeat_service() {
       current = current->next;
     }
   }
+  return 0;
 }
 
 /*
@@ -455,6 +468,7 @@ int zcs_init(int type) {
     if (m == NULL) {
       return -1;
     }
+    printf("Service created\n");
   }
 
   INITIALIZED = 1;
@@ -480,6 +494,7 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
   if (INITIALIZED == 0) {
     return -1;
   }
+  printf("Service started\n");
 
   int i = 0;
   while (name[i] != '\0') {
@@ -510,8 +525,16 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
   // Create a thread to run receive_discovery_message
   int result = pthread_create(&tid1, NULL, run_receive_discovery_message, m);
 
+  if (result != 0) {
+    return -1;
+  }
+
   // Create a thread to run send_heartbeat
-  int result = pthread_create(&tid2, NULL, run_send_heartbeat, m);
+  int result2 = pthread_create(&tid2, NULL, run_send_heartbeat, m);
+
+  if (result2 != 0) {
+    return -1;
+  }
 
   STARTED = 1;
   return 0;
@@ -538,6 +561,7 @@ int zcs_post_ad(char *ad_name, char *ad_value) {
   if (sent < 0) {
     return -1;
   }
+  printf("Ad posted\n");
   return 0;
 }
 
@@ -627,6 +651,8 @@ int zcs_shutdown() {
   // Free memory
   free(local_registry);
   free(ad_list);
+
+  printf("Service shut down\n");
 
   return 0;
 }
