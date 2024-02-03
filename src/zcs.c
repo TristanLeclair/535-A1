@@ -2,6 +2,7 @@
 #include "../include/multicast.h"
 #include <netinet/in.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,7 +36,7 @@ typedef struct _zcs_node_t {
   time_t hearbeat_time;
   zcs_cb_f cback;
   struct _zcs_node_t *next;
-  zcs_attribute_t *attriutes[];
+  zcs_attribute_t *attributes[];
 } zcs_node_t;
 
 typedef struct _node_list_t {
@@ -82,6 +83,19 @@ void add_node(zcs_node_t *node) {
     local_registry->tail->next = node;
     local_registry->tail = node;
   }
+}
+
+zcs_node_t *find_node_by_name(char *name) {
+  if (name == NULL) {
+    return NULL;
+  }
+  zcs_node_t *current = local_registry->head;
+  while (current != NULL) {
+    if (strcmp(current->name, name) == 0) {
+      return current;
+    }
+  }
+  return NULL;
 }
 
 void add_ad_node(ad_node_t *node) {
@@ -150,40 +164,42 @@ void deserialize_notification(char *msg, zcs_node_t *node) {
   // Start nume attributes at -1 so that the first attribute is at 0
   int num_attributes = -1;
 
-  while (msg[i] != '\0') {
-
-    // If the message is a # then we are at a new location in the message
-    if (msg[i] == '#') {
-      location_in_msg++;
-      // If the location is 1 then we are reading the name of the node
-      if (location_in_msg == 1) {
-        reading_name = 1;
-      }
-      // After the second #, we are reading the key and value of the attributes
-      else if (location_in_msg >= 2) {
-        reading_name = 0;
-        reading_key = 1;
-        reading_value = 0;
-        num_attributes++;
-      }
-      continue;
-    } else if (msg[i] == ';') {
-      reading_key = 0;
-      reading_value = 1;
-      continue;
-    }
-
-    if (reading_name == 1) {
-      strcat(node->name, &msg[i]);
-      continue;
-    } else if (reading_key == 1) {
-      strcpy(node->attriutes[num_attributes]->attr_name, &msg[i]);
-    } else if (reading_value == 1) {
-      strcpy(node->attriutes[num_attributes]->value, &msg[i]);
-    }
-
-    i++;
-  }
+  // while (msg[i] != '\0') {
+  //
+  //   // If the message is a # then we are at a new location in the message
+  //   if (msg[i] == '#') {
+  //     location_in_msg++;
+  //     // If the location is 1 then we are reading the name of the node
+  //     if (location_in_msg == 1) {
+  //       reading_name = 1;
+  //     }
+  //     // After the second #, we are reading the key and value of the
+  //     attributes else if (location_in_msg >= 2) {
+  //       reading_name = 0;
+  //       reading_key = 1;
+  //       reading_value = 0;
+  //       num_attributes++;
+  //     }
+  //     i++;
+  //     continue;
+  //   } else if (msg[i] == ';') {
+  //     reading_key = 0;
+  //     reading_value = 1;
+  //     i++;
+  //     continue;
+  //   }
+  //
+  //   if (reading_name == 1) {
+  //     strcat(node->name, &msg[i]);
+  //     i++;
+  //     continue;
+  //   } else if (reading_key == 1) {
+  //     strcpy(node->attriutes[num_attributes]->attr_name, &msg[i]);
+  //   } else if (reading_value == 1) {
+  //     strcpy(node->attriutes[num_attributes]->value, &msg[i]);
+  //   }
+  //   i++;
+  // }
 }
 
 void deserialize_ad(char *msg, ad_notification_t *ad) {
@@ -247,7 +263,8 @@ char *create_notification_msg() {
   size_t total_len = header_len;
 
   for (int i = 0; i < num_attr; ++i) {
-    total_len += snprintf(NULL, 0, "%s;%s#", attribute_array[i].attr_name, attribute_array[i].value);
+    total_len += snprintf(NULL, 0, "%s;%s#", attribute_array[i].attr_name,
+                          attribute_array[i].value);
   }
 
   char *result = malloc(total_len);
@@ -282,11 +299,84 @@ char *create_ad_msg(char *ad_name, char *ad_value) {
   return result;
 }
 
+zcs_node_t *handle_notification(char *token) {
+  zcs_node_t *current = local_registry->head;
+  zcs_node_t *node;
+  bool exists = false;
+
+  while (current != NULL) {
+    if (strcmp(current->name, token) == 0) {
+      exists = true;
+      current->status = 1;
+      current->hearbeat_time = time(NULL);
+      node = current;
+      break;
+    }
+    current = current->next;
+  }
+
+  if (exists) {
+    return node;
+  }
+
+  node = (zcs_node_t *)malloc(sizeof(zcs_node_t));
+  strcpy(node->name, token);
+
+  token = strtok(NULL, "#");
+  int key_count = 0;
+  while (token != NULL) {
+    char *kv_separator = strchr(token, ';');
+    if (kv_separator == NULL) {
+      // handle error
+    }
+    *kv_separator = '\0';
+
+    // TODO: COPY ATTRIBUTES
+    // strcpy(node->attributes[key_count]->attr_name, token, sizeof(
+  }
+  return node;
+}
+
+void handle_heartbeat(char *token) {}
+
+void handle_msg(char *msg, size_t msg_len) {
+  if (msg == NULL) {
+    // handle error
+  }
+
+  char *token = strtok(msg, "#");
+
+  if (token == NULL) {
+    // handle invalid format error
+  }
+
+  int msg_type;
+  if (sscanf(token, "%d", &msg_type) != 1 || !validate_message_type(msg_type)) {
+    // handle errors
+  }
+
+  switch (msg_type) {
+  case NOTIFICATION:
+    handle_notification(token);
+    break;
+  case DISCOVERY:
+    break;
+  case AD:
+    break;
+  case HEARTBEAT:
+    handle_heartbeat(token);
+    break;
+  default:
+    // handle error
+    break;
+  }
+}
+
 /*
   Help functions
 */
 
-void* run_receive_service_message() {
+void *run_receive_service_message() {
   while (1) {
     // Check for messages
     int rc = multicast_check_receive(m);
@@ -295,7 +385,7 @@ void* run_receive_service_message() {
     if (rc > 0) {
       char *msg = (char *)malloc(sizeof(char) * 1024);
       // Receive the message
-      multicast_receive(m, msg, sizeof(msg));
+      int msg_size = multicast_receive(m, msg, sizeof(msg));
       printf("Received message: '%s'", msg);
 
       int header = deserialize_header(msg);
@@ -377,7 +467,7 @@ void* run_receive_service_message() {
   Should this function return an int if for success or fail?
   Should the thread be stopped in this function?
 */
-void* run_receive_discovery_message() {
+void *run_receive_discovery_message() {
   while (stopThread == 0) {
     // Continually check for DISCOVERY messages
     int rc = multicast_check_receive(m);
@@ -408,7 +498,7 @@ void* run_receive_discovery_message() {
   Should this function return an int if for success or fail?
   Should the thread be stopped in this function?
 */
-void* run_send_heartbeat() {
+void *run_send_heartbeat() {
   while (stopThread == 0) {
     sleep(3);
     // Continually send HEARTBEAT messages
@@ -422,7 +512,7 @@ void* run_send_heartbeat() {
   return 0;
 }
 
-void* run_heartbeat_service() {
+void *run_heartbeat_service() {
   // Check the heartbeat count of all the nodes every 5 seconds
   while (1) {
     sleep(6);
@@ -600,8 +690,8 @@ int zcs_query(char *attr_name, char *attr_value, char *node_names[],
   int i = 0;
   zcs_node_t *current = local_registry->head;
   while (current != NULL && i < namelen) {
-    if (strcmp(current->attriutes[i]->attr_name, attr_name) == 0 &&
-        strcmp(current->attriutes[i]->value, attr_value) == 0) {
+    if (strcmp(current->attributes[i]->attr_name, attr_name) == 0 &&
+        strcmp(current->attributes[i]->value, attr_value) == 0) {
       node_names[i] = current->name;
       i++;
     }
@@ -624,7 +714,7 @@ int zcs_get_attribs(char *name, zcs_attribute_t attr[], int *num) {
   while (current != NULL) {
     if (strcmp(current->name, name) == 0) {
       for (int i = 0; i < *num; i++) {
-        attr[i] = *current->attriutes[i];
+        attr[i] = *current->attributes[i];
       }
       return 0;
     }
