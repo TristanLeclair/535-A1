@@ -301,31 +301,26 @@ char *create_ad_msg(char *ad_name, char *ad_value) {
   return result;
 }
 
-zcs_node_t *handle_notification(char *token) {
-  zcs_node_t *current = local_registry->head;
-  zcs_node_t *node;
-  bool exists = false;
-
-  while (current != NULL) {
-    if (strcmp(current->name, token) == 0) {
-      exists = true;
-      current->status = 1;
-      current->hearbeat_time = time(NULL);
-      node = current;
-      break;
-    }
-    current = current->next;
+void handle_notification(char *token) {
+  if (TYPE_OF_PROGRAM != ZCS_APP_TYPE) {
+    return;
   }
+  token = strtok(NULL, "#");
+  zcs_node_t *node = find_node_by_name(token);
 
-  if (exists) {
-    return node;
+  if (node != NULL) {
+    node->status = 1;
+    node->hearbeat_time = time(NULL);
+    return;
   }
 
   node = (zcs_node_t *)malloc(sizeof(zcs_node_t));
-  strcpy(node->name, token);
+  node->name = token;
+  node->status = 1;
+  node->hearbeat_time = time(NULL);
 
   token = strtok(NULL, "#");
-  int key_count = 0;
+  int i = 0;
   while (token != NULL) {
     char *kv_separator = strchr(token, ';');
     if (kv_separator == NULL) {
@@ -333,10 +328,17 @@ zcs_node_t *handle_notification(char *token) {
     }
     *kv_separator = '\0';
 
-    // TODO: COPY ATTRIBUTES
-    // strcpy(node->attributes[key_count]->attr_name, token, sizeof(
+    node->attributes[i] = (zcs_attribute_t *)malloc(sizeof(zcs_attribute_t));
+    strncpy(node->attributes[i]->attr_name, token,
+            sizeof(node->attributes[i]->attr_name));
+    strncpy(node->attributes[i]->value, kv_separator + 1,
+            sizeof(node->attributes[i]->value));
+
+    token = strtok(NULL, "#");
+    i++;
   }
-  return node;
+  add_node(node);
+  return;
 }
 
 void handle_heartbeat(char *token) {
