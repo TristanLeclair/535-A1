@@ -1,5 +1,5 @@
-#include "../include/zcs.h"
-#include "../include/multicast.h"
+#include "../../../include/zcs/zcs.h"
+#include "../../../include/multicast/multicast.h"
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdbool.h>

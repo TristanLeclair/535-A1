@@ -1,43 +1,35 @@
-# Compiler and flags
-CC := gcc
-CFLAGS := -Wall -Wextra -Iinclude -g
-LDFLAGS := -Llib -lmulticast -lzcs
+CC=gcc
+CFLAGS=-I./include -Wall -Wextra -g
+LDFLAGS=
+BINDIR=./bin
+SRCDIR=./src
+LIBDIR=./lib
+OBJDIR=$(LIBDIR)/obj
 
-SRC_DIRS = src
-BIN_DIR = bin
-LIB_DIR = lib
+# Automatically find common source files
+COMMON_SOURCES := $(wildcard $(SRCDIR)/common/*/*.c)
+COMMON_OBJECTS := $(COMMON_SOURCES:$(SRCDIR)/%.c=$(OBJDIR)/%.o)
 
-APPS = main app service
+# All targets
+all: $(BINDIR)/app $(BINDIR)/service
 
-# Find all source files
-SRC_FILES := $(shell find $(SRC_DIRS) -name '*.c')
+# Compile app
+$(BINDIR)/app: $(OBJDIR)/app/app.o $(COMMON_OBJECTS)
+	$(CC) $(LDFLAGS) $^ -o $@
 
-# Derive object file names from source files
-OBJ_FILES := $(SRC_FILES:%.c=%.o)
+# Compile service
+$(BINDIR)/service: $(OBJDIR)/service/service.o $(COMMON_OBJECTS)
+	$(CC) $(LDFLAGS) $^ -o $@
 
-# Derive executable names from app names
-EXE_FILES := $(APPS:%=$(BIN_DIR)/%)
-
-# Derive library names from lib names
-LIB_FILES := $(APPS:%=$(LIB_DIR)/lib%.a)
-
-all: $(EXE_FILES)
-
-# Compile each source file into an object file
-%.o: %.c
+# Generic rule for compiling source files to object files
+$(OBJDIR)/%.o: $(SRCDIR)/%.c
+	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Create static libraries
-$(LIB_DIR)/lib%.a: $(SRC_DIRS)/%/common/%/*.c
-	@mkdir -p $(LIB_DIR)
-	$(CC) $(CFLAGS) -c $^
-	ar rcs $@ $(notdir $(patsubst %.c,%.o,$^))
-	rm -f $(notdir $(patsubst %.c,%.o,$^))
-
-# Build each executable
-$(BIN_DIR)/%: $(SRC_DIRS)/%/src/*.c $(LIB_FILES)
-	@mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
-
+# Clean up
 clean:
-	rm -rf $(BIN_DIR) $(LIB_DIR) $(OBJ_FILES)
+	rm -f $(BINDIR)/*
+	rm -rf $(LIBDIR)
+
+.PHONY: all clean
+
