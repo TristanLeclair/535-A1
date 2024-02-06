@@ -1,7 +1,11 @@
-#include "../../../include/zcs/log_structs.h"
+#include "../../../include/logs/log_structs.h"
 #include <stdlib.h>
 
-void add_log(log_list_t *log_list, up_down_log_t *log) {
+log_list_t *log_list;
+
+up_down_log_t *get_log_head() { return log_list->head; }
+
+void add_log(up_down_log_t *log) {
   if (log_list == NULL) {
     log_list = (log_list_t *)malloc(sizeof(log_list_t));
   }
@@ -22,4 +26,17 @@ void add_log(log_list_t *log_list, up_down_log_t *log) {
       free(to_delete);
     }
   }
+}
+
+void free_logs() {
+  up_down_log_t *current = get_log_head();
+  up_down_log_t *next;
+  while (current != NULL) {
+    next = current->next;
+    free(current->log_entry);
+    free(current);
+    current = next;
+  }
+
+  free(log_list);
 }

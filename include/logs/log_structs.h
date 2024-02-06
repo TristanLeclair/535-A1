@@ -15,6 +15,10 @@ typedef struct {
   int current_size;
 } log_list_t;
 
-void add_log(log_list_t *log_list, up_down_log_t *log);
+up_down_log_t *get_log_head();
+
+void add_log(up_down_log_t *log);
+
+void free_logs();
 
 #endif
