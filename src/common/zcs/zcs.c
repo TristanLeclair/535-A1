@@ -15,8 +15,6 @@ typedef struct ad_notification {
 } ad_notification_t;
 
 mcast_t *m;
-// node_list_t *local_registry;
-// log_list_t *log_list;
 char *service_name;
 zcs_attribute_t *attribute_array;
 int num_attr;
