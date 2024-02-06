@@ -1,5 +1,6 @@
 #include "../../../include/zcs/zcs.h"
 #include "../../../include/multicast/multicast.h"
+#include "../../../include/zcs/log_manager.h"
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -8,11 +9,6 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-
-#define foreach(item, array)                                                   \
-  for (int keep = 1, count = 0, size = sizeof(array) / sizeof(*(array));       \
-       keep && count != size; keep = !keep, count++)                           \
-    for (item = (array) + count; keep; keep = !keep)
 
 #define MIN_TYPE_NUMBER 1
 enum Msg_type {
@@ -45,18 +41,6 @@ typedef struct _node_list_t {
   zcs_node_t *tail;
 } node_list_t;
 
-typedef struct up_down_log {
-  char log_entry[69];
-  struct up_down_log *next;
-} up_down_log_t;
-
-const int MAX_LOG_SIZE = 50;
-typedef struct _log_list {
-  up_down_log_t *head;
-  up_down_log_t *tail;
-  int current_size;
-} log_list_t;
-
 typedef struct ad_notification {
   char *service_name;
   char *name;
@@ -88,35 +72,6 @@ void add_node(zcs_node_t *node) {
   }
 }
 
-void add_log(up_down_log_t *log) {
-  if (log_list == NULL) {
-    log_list = (log_list_t *)malloc(sizeof(log_list_t));
-  }
-  if (log_list->head == NULL) {
-    log_list->head = log;
-    log_list->tail = log;
-    log_list->current_size = 1;
-  } else {
-    log_list->tail->next = log;
-    log_list->tail = log;
-    log_list->current_size++;
-
-    if (log_list->current_size > MAX_LOG_SIZE) {
-      up_down_log_t *to_delete = log_list->head;
-      log_list->head = to_delete->next;
-      free(to_delete->log_entry);
-      free(to_delete);
-    }
-  }
-}
-
-void create_log(char log[69]) {
-  up_down_log_t *log_object = (up_down_log_t *)malloc(sizeof(up_down_log_t));
-  strncpy(log_object->log_entry, log, 69);
-
-  add_log(log_object);
-}
-
 char *status_to_text(enum Status status) {
   switch (status) {
   case UP:
@@ -132,7 +87,7 @@ void create_up_down_log(char *service_name, enum Status status) {
   char *status_log = status_to_text(status);
   char buffer[69];
   snprintf(buffer, 69, "%s: %s", service_name, status_log);
-  create_log(buffer);
+  create_log(log_list, buffer);
 }
 
 zcs_node_t *find_node_by_name(char *name) {
