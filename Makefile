@@ -11,14 +11,14 @@ COMMON_SOURCES := $(wildcard $(SRCDIR)/common/*/*.c)
 COMMON_OBJECTS := $(COMMON_SOURCES:$(SRCDIR)/%.c=$(OBJDIR)/%.o)
 
 # All targets
-all: $(BINDIR)/app $(BINDIR)/service
+all: $(BINDIR)/apps $(BINDIR)/services
 
 # Compile app
-$(BINDIR)/app: $(OBJDIR)/app/app.o $(COMMON_OBJECTS)
+$(BINDIR)/apps: $(OBJDIR)/apps/app.o $(COMMON_OBJECTS)
 	$(CC) $(LDFLAGS) $^ -o $@
 
 # Compile service
-$(BINDIR)/service: $(OBJDIR)/service/service.o $(COMMON_OBJECTS)
+$(BINDIR)/services: $(OBJDIR)/services/service.o $(COMMON_OBJECTS)
 	$(CC) $(LDFLAGS) $^ -o $@
 
 # Generic rule for compiling source files to object files
