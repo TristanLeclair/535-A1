@@ -9,6 +9,4 @@ COPY src/ src/
 COPY include/ include/
 COPY Makefile .
 
-EXPOSE 8080/udp 5000/udp
-
 RUN make all
