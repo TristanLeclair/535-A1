@@ -1,4 +1,4 @@
-#include "../include/multicast/multicast.h"
+#include "../../include/multicast/multicast.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
   }
 
   int rport = atoi(argv[1]);
-  int sport = 5000;
+  int sport = rport + rport + random() % rport;
   printf("Receivng port: %d\n", rport);
   printf("Send port (nothing sent): %d\n", sport);
 

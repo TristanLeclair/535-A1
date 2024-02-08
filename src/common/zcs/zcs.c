@@ -251,7 +251,7 @@ int zcs_init(int type) {
 
   // If the type is ZCS_APP_TYPE, then the node is an application
   if (TYPE_OF_PROGRAM == ZCS_APP_TYPE) {
-    m = multicast_init("239.1.1.1", 5000, 8080);
+    m = multicast_init("224.1.1.1", 5000, 8080);
 
     if (m == NULL) {
       return -1;
@@ -280,7 +280,7 @@ int zcs_init(int type) {
   }
   // If the type is ZCS_SERVICE_TYPE, then the node is a discovery node
   else if (TYPE_OF_PROGRAM == ZCS_SERVICE_TYPE) {
-    m = multicast_init("238.1.1.1", 8080, 5000);
+    m = multicast_init("224.1.1.1", 8080, 5000);
 
     if (m == NULL) {
       return -1;
@@ -372,7 +372,7 @@ happen if the posting was called before the node was started.
 int zcs_post_ad(char *ad_name, char *ad_value) {
   // Send an ADD message to the network
 
-  // Needs a bit of work to repeat attempts
+  // TODO: Needs a bit of work to repeat attempts
   char *ad_msg = create_ad_msg(service_name, ad_name, ad_value);
   printf("Sending: '%s'\n", ad_msg);
   int sent = multicast_send(m, ad_msg, strlen(ad_msg));
