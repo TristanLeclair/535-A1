@@ -1,4 +1,4 @@
-#include "../include/multicast.h"
+#include "../../include/multicast/multicast.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,12 +16,12 @@ int main(int argc, char *argv[]) {
   int sport = atoi(argv[1]);
   printf("Send-to port: %d\n", sport);
   srand(0);
-  // int myport = sport + random() % sport;
-  int myport = 5000;
+  int myport = sport + random() % sport;
+  // int myport = 5000;
   printf("Receiving port: %d\n", myport);
   char *msg = argv[2];
 
-  mcast_t *m = multicast_init("225.1.1.1", sport, myport);
+  mcast_t *m = multicast_init("224.1.1.1", sport, myport);
 
   while (1) {
     sleep(1);

@@ -1,5 +1,4 @@
-#include "../include/zcs.h"
-#include "../include/multicast.h"
+#include "../../../include/zcs/zcs.h"
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -9,54 +8,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#define foreach(item, array)                                                   \
-  for (int keep = 1, count = 0, size = sizeof(array) / sizeof(*(array));       \
-       keep && count != size; keep = !keep, count++)                           \
-    for (item = (array) + count; keep; keep = !keep)
-
-#define MIN_TYPE_NUMBER 1
-enum Msg_type {
-  NOTIFICATION = MIN_TYPE_NUMBER,
-  DISCOVERY,
-  HEARTBEAT,
-  AD,
-
-  // ALWAYS KEEP THIS LAST
-  MAX_MESSAGE_TYPE
-};
-
-enum Status { DOWN, UP };
-
-int validate_message_type(int type) {
-  return (type >= MIN_TYPE_NUMBER && type < MAX_MESSAGE_TYPE);
-}
-
-typedef struct _zcs_node_t {
-  char *name;
-  enum Status status;
-  time_t hearbeat_time;
-  zcs_cb_f cback;
-  struct _zcs_node_t *next;
-  zcs_attribute_t attributes[10];
-} zcs_node_t;
-
-typedef struct _node_list_t {
-  zcs_node_t *head;
-  zcs_node_t *tail;
-} node_list_t;
-
-typedef struct up_down_log {
-  char log_entry[69];
-  struct up_down_log *next;
-} up_down_log_t;
-
-const int MAX_LOG_SIZE = 50;
-typedef struct _log_list {
-  up_down_log_t *head;
-  up_down_log_t *tail;
-  int current_size;
-} log_list_t;
-
 typedef struct ad_notification {
   char *service_name;
   char *name;
@@ -64,8 +15,6 @@ typedef struct ad_notification {
 } ad_notification_t;
 
 mcast_t *m;
-node_list_t *local_registry;
-log_list_t *log_list;
 char *service_name;
 zcs_attribute_t *attribute_array;
 int num_attr;
@@ -75,92 +24,6 @@ int TYPE_OF_PROGRAM;
 
 // Global var to stop thread
 int stopThread = 0;
-
-// Methods
-
-void add_node(zcs_node_t *node) {
-  if (local_registry->head == NULL) {
-    local_registry->head = node;
-    local_registry->tail = node;
-  } else {
-    local_registry->tail->next = node;
-    local_registry->tail = node;
-  }
-}
-
-void add_log(up_down_log_t *log) {
-  if (log_list == NULL) {
-    log_list = (log_list_t *)malloc(sizeof(log_list_t));
-  }
-  if (log_list->head == NULL) {
-    log_list->head = log;
-    log_list->tail = log;
-    log_list->current_size = 1;
-  } else {
-    log_list->tail->next = log;
-    log_list->tail = log;
-    log_list->current_size++;
-
-    if (log_list->current_size > MAX_LOG_SIZE) {
-      up_down_log_t *to_delete = log_list->head;
-      log_list->head = to_delete->next;
-      free(to_delete->log_entry);
-      free(to_delete);
-    }
-  }
-}
-
-void create_log(char log[69]) {
-  up_down_log_t *log_object = (up_down_log_t *)malloc(sizeof(up_down_log_t));
-  strncpy(log_object->log_entry, log, 69);
-
-  add_log(log_object);
-}
-
-char *status_to_text(enum Status status) {
-  switch (status) {
-  case UP:
-    return "UP";
-  case DOWN:
-    return "DOWN";
-  default:
-    exit(EXIT_FAILURE);
-  }
-}
-
-void create_up_down_log(char *service_name, enum Status status) {
-  char *status_log = status_to_text(status);
-  char buffer[69];
-  snprintf(buffer, 69, "%s: %s", service_name, status_log);
-  create_log(buffer);
-}
-
-zcs_node_t *find_node_by_name(char *name) {
-  if (name == NULL) {
-    return NULL;
-  }
-  zcs_node_t *current = local_registry->head;
-  while (current != NULL) {
-    if (strcmp(current->name, name) == 0) {
-      return current;
-    }
-    current = current->next;
-  }
-  return NULL;
-}
-
-void copy_array(const zcs_attribute_t given_attributes[],
-                zcs_attribute_t **local_attribute_array, int num) {
-  *local_attribute_array = malloc(num * sizeof(zcs_attribute_t));
-
-  if (*local_attribute_array == NULL) {
-    fprintf(stderr, "malloc failed\n");
-    exit(EXIT_FAILURE);
-  }
-
-  memcpy(*local_attribute_array, given_attributes,
-         num * sizeof(zcs_attribute_t));
-}
 
 void update_status(zcs_node_t *node, enum Status status) {
   enum Status old_status = node->status;
@@ -173,69 +36,6 @@ void update_status(zcs_node_t *node, enum Status status) {
   }
 }
 
-char *create_discovery_msg() {
-  size_t len = snprintf(NULL, 0, "%d#", DISCOVERY) + 1;
-
-  char *result = malloc(len);
-
-  snprintf(result, len, "%d#", DISCOVERY);
-
-  return result;
-}
-
-char *create_heartbeat_msg() {
-  size_t len = snprintf(NULL, 0, "%d#%s#", HEARTBEAT, service_name) + 1;
-
-  char *result = malloc(len);
-
-  snprintf(result, len, "%d#%s#", HEARTBEAT, service_name);
-
-  return result;
-}
-
-char *create_notification_msg() {
-  enum Msg_type type = NOTIFICATION;
-  size_t header_len = snprintf(NULL, 0, "%d#%s#", type, service_name);
-  header_len += 1;
-  size_t total_len = header_len;
-
-  for (int i = 0; i < num_attr; ++i) {
-    total_len += snprintf(NULL, 0, "%s;%s#", attribute_array[i].attr_name,
-                          attribute_array[i].value);
-  }
-
-  char *result = malloc(total_len);
-
-  if (result == NULL) {
-    fprintf(stderr, "Memory allocation failed!\n");
-    exit(EXIT_FAILURE);
-  }
-
-  snprintf(result, header_len, "%d#%s#", type, service_name);
-
-  for (int i = 0; i < num_attr; ++i) {
-    strcat(result, attribute_array[i].attr_name);
-    strcat(result, ";");
-    strcat(result, attribute_array[i].value);
-    strcat(result, "#");
-  }
-
-  return result;
-}
-
-char *create_ad_msg(char *ad_name, char *ad_value) {
-  enum Msg_type type = AD;
-  size_t len =
-      snprintf(NULL, 0, "%d#%s#%s#%s#", type, service_name, ad_name, ad_value) +
-      1;
-
-  char *result = malloc(len);
-
-  snprintf(result, len, "%d#%s#%s#%s#", type, service_name, ad_name, ad_value);
-
-  return result;
-}
-
 void handle_notification(char *token) {
   if (TYPE_OF_PROGRAM != ZCS_APP_TYPE) {
     return;
@@ -244,7 +44,7 @@ void handle_notification(char *token) {
   if (token == NULL) {
     // TODO: handle service name empty error
   }
-  zcs_node_t *node = find_node_by_name(token);
+  zcs_node_t *node = find_node_in_registry(token);
 
   if (node != NULL) {
     update_status(node, UP);
@@ -275,7 +75,7 @@ void handle_notification(char *token) {
     token = strtok(NULL, "#");
     i++;
   }
-  add_node(node);
+  add_node_to_registry(node);
   return;
 }
 
@@ -285,7 +85,7 @@ void handle_heartbeat(char *token) {
   }
   token = strtok(NULL, "#");
 
-  zcs_node_t *node = find_node_by_name(token);
+  zcs_node_t *node = find_node_in_registry(token);
   if (node == NULL)
     return;
   update_status(node, UP);
@@ -302,7 +102,7 @@ void handle_ad() {
   ad->name = strtok(NULL, "#");
   ad->value = strtok(NULL, "#");
 
-  zcs_node_t *node = find_node_by_name(ad->service_name);
+  zcs_node_t *node = find_node_in_registry(ad->service_name);
 
   if (node == NULL) {
     return;
@@ -321,7 +121,8 @@ void handle_disc() {
     return;
   }
 
-  char *notification = create_notification_msg();
+  char *notification =
+      create_notification_msg(service_name, num_attr, attribute_array);
   printf("Sending: '%s'\n", notification);
   printf("Size of notification: '%lu'\n", strlen(notification));
   multicast_send(m, notification, strlen(notification));
@@ -410,7 +211,7 @@ void *run_send_heartbeat() {
   while (stopThread == 0) {
     sleep(3);
     // Continually send HEARTBEAT messages
-    char *heartbeat = create_heartbeat_msg();
+    char *heartbeat = create_heartbeat_msg(service_name);
     printf("Sending: '%s'\n", heartbeat);
     multicast_send(m, heartbeat, strlen(heartbeat));
   }
@@ -422,7 +223,7 @@ void *run_heartbeat_checker() {
 
   while (1) {
     sleep(6);
-    zcs_node_t *current = local_registry->head;
+    zcs_node_t *current = get_head_of_registry();
     while (current != NULL) {
       // If the node heartbeat count doesn't equal the required heartbeat count,
       // then set the status to DOWN
@@ -450,14 +251,13 @@ int zcs_init(int type) {
 
   // If the type is ZCS_APP_TYPE, then the node is an application
   if (TYPE_OF_PROGRAM == ZCS_APP_TYPE) {
-    m = multicast_init("239.1.1.1", 5000, 8080);
+    m = multicast_init("224.1.1.1", 5000, 8080);
 
     if (m == NULL) {
       return -1;
     }
 
-    local_registry = malloc(sizeof(node_list_t));
-    log_list = malloc(sizeof(log_list_t));
+    start_local_registry();
 
     // Support for receivig messages
     multicast_setup_recv(m);
@@ -480,7 +280,7 @@ int zcs_init(int type) {
   }
   // If the type is ZCS_SERVICE_TYPE, then the node is a discovery node
   else if (TYPE_OF_PROGRAM == ZCS_SERVICE_TYPE) {
-    m = multicast_init("238.1.1.1", 8080, 5000);
+    m = multicast_init("224.1.1.1", 8080, 5000);
 
     if (m == NULL) {
       return -1;
@@ -528,7 +328,8 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
   multicast_setup_recv(m);
 
   // Send a NOTIFICATION message to the network
-  char *notification = create_notification_msg();
+  char *notification =
+      create_notification_msg(service_name, num_attr, attribute_array);
   printf("Sending: '%s'\n", notification);
   int sent = multicast_send(m, notification, strlen(notification));
   if (sent < 0) {
@@ -571,8 +372,8 @@ happen if the posting was called before the node was started.
 int zcs_post_ad(char *ad_name, char *ad_value) {
   // Send an ADD message to the network
 
-  // Needs a bit of work to repeat attempts
-  char *ad_msg = create_ad_msg(ad_name, ad_value);
+  // TODO: Needs a bit of work to repeat attempts
+  char *ad_msg = create_ad_msg(service_name, ad_name, ad_value);
   printf("Sending: '%s'\n", ad_msg);
   int sent = multicast_send(m, ad_msg, strlen(ad_msg));
   if (sent < 0) {
@@ -593,7 +394,7 @@ is not in the same network as the matching node.
 int zcs_query(char *attr_name, char *attr_value, char *node_names[],
               int namelen) {
   int i = 0;
-  zcs_node_t *current = local_registry->head;
+  zcs_node_t *current = get_head_of_registry();
   while (current != NULL && i < namelen) {
     if (strcmp(current->attributes[i].attr_name, attr_name) == 0 &&
         strcmp(current->attributes[i].value, attr_value) == 0) {
@@ -615,7 +416,7 @@ return value of the function is 0 if there is no error and is -1 if there is an
 error.
 */
 int zcs_get_attribs(char *name, zcs_attribute_t attr[], int *num) {
-  zcs_node_t *current = local_registry->head;
+  zcs_node_t *current = get_head_of_registry();
   while (current != NULL) {
     if (strcmp(current->name, name) == 0) {
       for (int i = 0; i < *num; i++) {
@@ -636,7 +437,7 @@ value of the advertisement. There is no mechanism for un-listening to an
 advertisement.
 */
 int zcs_listen_ad(char *name, zcs_cb_f cback) {
-  zcs_node_t *current = local_registry->head;
+  zcs_node_t *current = get_head_of_registry();
   while (current != NULL) {
     if (strcmp(current->name, name) == 0) {
       current->cback = cback;
@@ -666,7 +467,8 @@ int zcs_shutdown() {
   stopThread = 1;
 
   // Free memory
-  free(local_registry);
+  free_registry();
+  free_logs();
 
   printf("Service shut down\n");
 
@@ -682,7 +484,7 @@ tcloseruncated once it reaches a predefined length in size or time. There is no
 return value for this function.
 */
 void zcs_log() {
-  up_down_log_t *current = log_list->head;
+  up_down_log_t *current = get_log_head();
   while (current != NULL) {
     printf("%s\n", current->log_entry);
     current = current->next;
