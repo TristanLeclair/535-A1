@@ -43,6 +43,7 @@ void handle_notification(char *token) {
   token = strtok(NULL, "#");
   if (token == NULL) {
     // TODO: handle service name empty error
+    return;
   }
   zcs_node_t *node = find_node_in_registry(token);
 
@@ -58,12 +59,14 @@ void handle_notification(char *token) {
   token = strtok(NULL, "#");
   if (token == NULL) {
     // TODO: handle attributes empty
+    return;
   }
   int i = 0;
   while (token != NULL) {
     char *kv_separator = strchr(token, ';');
     if (kv_separator == NULL) {
       // TODO: handle error
+      return;
     }
     *kv_separator = '\0';
 
@@ -132,17 +135,20 @@ void handle_msg(char *msg) {
   printf("Received message: %s\n", msg);
   if (msg == NULL) {
     // TODO: handle error
+    return;
   }
 
   char *token = strtok(msg, "#");
 
   if (token == NULL) {
     // TODO: handle invalid format error
+    return;
   }
 
   int msg_type;
   if (sscanf(token, "%d", &msg_type) != 1 || !validate_message_type(msg_type)) {
     // TODO: handle errors
+    return;
   }
 
   switch (msg_type) {
@@ -160,7 +166,7 @@ void handle_msg(char *msg) {
     break;
   default:
     // TODO: handle error
-    break;
+    return;
   }
 }
 
