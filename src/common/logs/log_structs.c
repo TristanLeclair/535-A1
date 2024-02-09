@@ -29,6 +29,9 @@ void add_log(up_down_log_t *log) {
 }
 
 void free_logs() {
+  if (log_list == NULL) {
+    return;
+  }
   up_down_log_t *current = get_log_head();
   up_down_log_t *next;
   while (current != NULL) {
