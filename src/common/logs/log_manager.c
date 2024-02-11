@@ -6,7 +6,6 @@
 void create_log(const char *log_entry) {
   up_down_log_t *log_object = (up_down_log_t *)malloc(sizeof(up_down_log_t));
   if (log_object == NULL) {
-    // TODO: handle error
     return;
   }
 

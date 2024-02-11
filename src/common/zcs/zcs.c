@@ -42,7 +42,6 @@ void handle_notification(char *token) {
   }
   token = strtok(NULL, "#");
   if (token == NULL) {
-    // TODO: handle service name empty error
     return;
   }
   zcs_node_t *node = find_node_in_registry(token);
@@ -58,14 +57,12 @@ void handle_notification(char *token) {
 
   token = strtok(NULL, "#");
   if (token == NULL) {
-    // TODO: handle attributes empty
     return;
   }
   int i = 0;
   while (token != NULL) {
     char *kv_separator = strchr(token, ';');
     if (kv_separator == NULL) {
-      // TODO: handle error
       return;
     }
     *kv_separator = '\0';
@@ -126,28 +123,22 @@ void handle_disc() {
 
   char *notification =
       create_notification_msg(service_name, num_attr, attribute_array);
-  printf("Sending: '%s'\n", notification);
-  printf("Size of notification: '%lu'\n", strlen(notification));
   multicast_send(m, notification, strlen(notification));
 }
 
 void handle_msg(char *msg) {
-  printf("Received message: %s\n", msg);
   if (msg == NULL) {
-    // TODO: handle error
     return;
   }
 
   char *token = strtok(msg, "#");
 
   if (token == NULL) {
-    // TODO: handle invalid format error
     return;
   }
 
   int msg_type;
   if (sscanf(token, "%d", &msg_type) != 1 || !validate_message_type(msg_type)) {
-    // TODO: handle errors
     return;
   }
 
@@ -165,7 +156,6 @@ void handle_msg(char *msg) {
     handle_heartbeat(token);
     break;
   default:
-    // TODO: handle error
     return;
   }
 }
@@ -218,7 +208,6 @@ void *run_send_heartbeat() {
     sleep(3);
     // Continually send HEARTBEAT messages
     char *heartbeat = create_heartbeat_msg(service_name);
-    printf("Sending: '%s'\n", heartbeat);
     multicast_send(m, heartbeat, strlen(heartbeat));
   }
   return 0;
@@ -281,7 +270,6 @@ int zcs_init(int type) {
 
     // Send a DISCOVERY message to the network
     char *disc_msg = create_discovery_msg();
-    printf("Sending: '%s'\n", disc_msg);
     multicast_send(m, disc_msg, strlen(disc_msg));
   }
   // If the type is ZCS_SERVICE_TYPE, then the node is a discovery node
@@ -291,7 +279,6 @@ int zcs_init(int type) {
     if (m == NULL) {
       return -1;
     }
-    printf("Service created\n");
   }
 
   INITIALIZED = 1;
@@ -317,7 +304,6 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
   if (INITIALIZED == 0) {
     return -1;
   }
-  printf("Service started\n");
 
   int i = 0;
   while (name[i] != '\0') {
@@ -336,7 +322,6 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
   // Send a NOTIFICATION message to the network
   char *notification =
       create_notification_msg(service_name, num_attr, attribute_array);
-  printf("Sending: '%s'\n", notification);
   int sent = multicast_send(m, notification, strlen(notification));
   if (sent < 0) {
     return -1;
@@ -378,14 +363,11 @@ happen if the posting was called before the node was started.
 int zcs_post_ad(char *ad_name, char *ad_value) {
   // Send an ADD message to the network
 
-  // TODO: Needs a bit of work to repeat attempts
   char *ad_msg = create_ad_msg(service_name, ad_name, ad_value);
-  printf("Sending: '%s'\n", ad_msg);
   int sent = multicast_send(m, ad_msg, strlen(ad_msg));
   if (sent < 0) {
     return -1;
   }
-  printf("Ad posted\n");
   return 0;
 }
 

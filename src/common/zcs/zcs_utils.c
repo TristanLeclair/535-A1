@@ -24,7 +24,6 @@ void copy_array(const zcs_attribute_t given_attributes[],
   *local_attribute_array = malloc(num * sizeof(zcs_attribute_t));
 
   if (*local_attribute_array == NULL) {
-    fprintf(stderr, "malloc failed\n");
     exit(EXIT_FAILURE);
   }
 
