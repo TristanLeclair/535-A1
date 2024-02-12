@@ -458,8 +458,6 @@ int zcs_shutdown() {
   free_registry();
   free_logs();
 
-  printf("Service shut down\n");
-
   return 0;
 }
 
