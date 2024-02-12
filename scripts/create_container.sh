@@ -7,7 +7,7 @@ ask_replace() {
       [Yy]* )
         docker rm -f "$1"
         echo "Replacing container: $1"
-        docker run -d --name "$1" "$IMAGE_NAME"
+        docker run -itd --name "$1" "$IMAGE_NAME"
         break;;
       [Nn]* )
         echo "Skipping container: $1"
