@@ -124,6 +124,7 @@ void handle_disc() {
   char *notification =
       create_notification_msg(service_name, num_attr, attribute_array);
   multicast_send(m, notification, strlen(notification));
+  free(notification);
 }
 
 void handle_msg(char *msg) {
@@ -209,6 +210,7 @@ void *run_send_heartbeat() {
     // Continually send HEARTBEAT messages
     char *heartbeat = create_heartbeat_msg(service_name);
     multicast_send(m, heartbeat, strlen(heartbeat));
+    free(heartbeat);
   }
   return 0;
 }
@@ -271,6 +273,7 @@ int zcs_init(int type) {
     // Send a DISCOVERY message to the network
     char *disc_msg = create_discovery_msg();
     multicast_send(m, disc_msg, strlen(disc_msg));
+    free(disc_msg);
   }
   // If the type is ZCS_SERVICE_TYPE, then the node is a discovery node
   else if (TYPE_OF_PROGRAM == ZCS_SERVICE_TYPE) {
@@ -279,6 +282,9 @@ int zcs_init(int type) {
     if (m == NULL) {
       return -1;
     }
+  }
+  else {
+    return -1;
   }
 
   INITIALIZED = 1;
@@ -323,6 +329,7 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
   char *notification =
       create_notification_msg(service_name, num_attr, attribute_array);
   int sent = multicast_send(m, notification, strlen(notification));
+  free(notification);
   if (sent < 0) {
     return -1;
   }
@@ -357,18 +364,21 @@ The advertisement duration and repeat attempts
 are pre-set in the ZCS library. The node will attempt to deliver the
 advertisements to other nodes in the network according to the duration and
 repeat attempts. Returns the number of times the advertisement was posted on the
-network. It will return 0 (no posting) to indicate an error condition. This will
-happen if the posting was called before the node was started.
+network. It will return 0 (no posting) to indicate an error condition. This will happen if the posting was called before the node was started.
   */
 int zcs_post_ad(char *ad_name, char *ad_value) {
   // Send an ADD message to the network
+  if (STARTED == 0) {
+    return 0;
+  }
 
   char *ad_msg = create_ad_msg(service_name, ad_name, ad_value);
   int sent = multicast_send(m, ad_msg, strlen(ad_msg));
+  free(ad_msg);
   if (sent < 0) {
-    return -1;
+    return 0;
   }
-  return 0;
+  return 1;
 }
 
 /*
