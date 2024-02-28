@@ -1,0 +1,306 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/apps/app.o",
+      "src/apps/app.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/apps/app.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/apps/app.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/common/logs/log_manager.o",
+      "src/common/logs/log_manager.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/common/logs/log_manager.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/common/logs/log_manager.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/common/logs/log_structs.o",
+      "src/common/logs/log_structs.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/common/logs/log_structs.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/common/logs/log_structs.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/common/messages/message_creation.o",
+      "src/common/messages/message_creation.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/common/messages/message_creation.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/common/messages/message_creation.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/common/messages/messages.o",
+      "src/common/messages/messages.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/common/messages/messages.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/common/messages/messages.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/common/multicast/multicast.o",
+      "src/common/multicast/multicast.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/common/multicast/multicast.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/common/multicast/multicast.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/common/zcs/local_registry.o",
+      "src/common/zcs/local_registry.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/common/zcs/local_registry.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/common/zcs/local_registry.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/common/zcs/status.o",
+      "src/common/zcs/status.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/common/zcs/status.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/common/zcs/status.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/common/zcs/zcs.o",
+      "src/common/zcs/zcs.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/common/zcs/zcs.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/common/zcs/zcs.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/common/zcs/zcs_utils.o",
+      "src/common/zcs/zcs_utils.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/common/zcs/zcs_utils.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/common/zcs/zcs_utils.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/apps/app2.o",
+      "src/apps/app2.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/apps/app2.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/apps/app2.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/apps/app3.o",
+      "src/apps/app3.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/apps/app3.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/apps/app3.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/services/service.o",
+      "src/services/service.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/services/service.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/services/service.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/services/service2.o",
+      "src/services/service2.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/services/service2.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/services/service2.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/services/service3.o",
+      "src/services/service3.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/services/service3.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/services/service3.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/services/service4.o",
+      "src/services/service4.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/services/service4.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/services/service4.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/testers/receiver.o",
+      "src/testers/receiver.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/testers/receiver.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/testers/receiver.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/testers/send_test.o",
+      "src/testers/send_test.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/testers/send_test.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/testers/send_test.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/testers/tester.o",
+      "src/testers/tester.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/testers/tester.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/testers/tester.o"
+  }
+]
