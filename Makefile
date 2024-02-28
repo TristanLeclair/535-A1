@@ -72,6 +72,7 @@ $(OBJDIR)/testers/%.o: $(SRCDIR)/testers/%.c
 clean:
 	rm -rf $(BINDIR)
 	rm -rf $(LIBDIR)
+	./scripts/clean_containers.sh
 
 .PRECIOUS: $(OBJDIR)/%.o
 
