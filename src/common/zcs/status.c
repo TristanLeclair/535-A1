@@ -1,4 +1,4 @@
-#include "../../../include/zcs/status.h"
+#include "zcs/status.h"
 #include <stdlib.h>
 
 char *status_to_text(enum Status status) {

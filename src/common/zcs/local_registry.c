@@ -1,4 +1,5 @@
-#include "../../../include/zcs/local_registry.h"
+#include "zcs/local_registry.h"
+#include "zcs/zcs_utils.h"
 #include <stdlib.h>
 
 node_list_t *local_registry;

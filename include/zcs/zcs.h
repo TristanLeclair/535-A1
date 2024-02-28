@@ -1,12 +1,7 @@
 #ifndef __ZCS_H__
 #define __ZCS_H__
 
-#include "../multicast/multicast.h"
-#include "../logs/log_manager.h"
-#include "../messages/message_creation.h"
 #include "zcs_structs.h"
-#include "zcs_utils.h"
-#include "local_registry.h"
 
 #define ZCS_APP_TYPE 1
 #define ZCS_SERVICE_TYPE 2

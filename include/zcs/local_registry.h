@@ -2,7 +2,6 @@
 #define LOCAL_REGISTRY_H
 
 #include "zcs_structs.h"
-#include "zcs_utils.h"
 
 void start_local_registry();
 

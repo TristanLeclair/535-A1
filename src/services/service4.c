@@ -1,5 +1,5 @@
 #include <unistd.h>
-#include "../../include/zcs/zcs.h"
+#include "zcs/zcs.h"
 
 int main() {
     int rv;

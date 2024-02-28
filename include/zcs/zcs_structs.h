@@ -1,8 +1,8 @@
 #ifndef ZCS_STRUCTS_H
 #define ZCS_STRUCTS_H
 
-#include "../multicast/multicast.h"
 #include "status.h"
+#include <time.h>
 
 typedef struct {
   char attr_name[64];

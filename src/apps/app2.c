@@ -1,4 +1,4 @@
-#include "../../include/zcs/zcs.h"
+#include "zcs/zcs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

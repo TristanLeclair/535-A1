@@ -1,7 +1,6 @@
 #ifndef MESSAGE_CREATION_H
 #define MESSAGE_CREATION_H
 
-#include "messages.h"
 #include "../zcs/zcs_structs.h"
 
 char *create_discovery_msg();

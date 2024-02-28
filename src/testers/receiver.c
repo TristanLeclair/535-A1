@@ -1,4 +1,4 @@
-#include "../../include/multicast/multicast.h"
+#include "multicast/multicast.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

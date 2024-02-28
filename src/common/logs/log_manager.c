@@ -1,4 +1,4 @@
-#include "../../../include/logs/log_manager.h"
+#include "logs/log_manager.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
