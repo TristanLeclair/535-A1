@@ -8,12 +8,12 @@
       "-g",
       "-c",
       "-o",
-      "lib/obj/apps/app.o",
-      "src/apps/app.c"
+      "lib/obj/apps/app_a_1.o",
+      "src/apps/app_a_1.c"
     ],
     "directory": "/home/tlecla/projects/c/535-A1",
-    "file": "/home/tlecla/projects/c/535-A1/src/apps/app.c",
-    "output": "/home/tlecla/projects/c/535-A1/lib/obj/apps/app.o"
+    "file": "/home/tlecla/projects/c/535-A1/src/apps/app_a_1.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/apps/app_a_1.o"
   },
   {
     "arguments": [
@@ -168,12 +168,12 @@
       "-g",
       "-c",
       "-o",
-      "lib/obj/apps/app2.o",
-      "src/apps/app2.c"
+      "lib/obj/apps/app_a_2.o",
+      "src/apps/app_a_2.c"
     ],
     "directory": "/home/tlecla/projects/c/535-A1",
-    "file": "/home/tlecla/projects/c/535-A1/src/apps/app2.c",
-    "output": "/home/tlecla/projects/c/535-A1/lib/obj/apps/app2.o"
+    "file": "/home/tlecla/projects/c/535-A1/src/apps/app_a_2.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/apps/app_a_2.o"
   },
   {
     "arguments": [
@@ -184,12 +184,12 @@
       "-g",
       "-c",
       "-o",
-      "lib/obj/apps/app3.o",
-      "src/apps/app3.c"
+      "lib/obj/apps/app_b_1.o",
+      "src/apps/app_b_1.c"
     ],
     "directory": "/home/tlecla/projects/c/535-A1",
-    "file": "/home/tlecla/projects/c/535-A1/src/apps/app3.c",
-    "output": "/home/tlecla/projects/c/535-A1/lib/obj/apps/app3.o"
+    "file": "/home/tlecla/projects/c/535-A1/src/apps/app_b_1.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/apps/app_b_1.o"
   },
   {
     "arguments": [
@@ -200,12 +200,12 @@
       "-g",
       "-c",
       "-o",
-      "lib/obj/services/service.o",
-      "src/services/service.c"
+      "lib/obj/apps/app_b_2.o",
+      "src/apps/app_b_2.c"
     ],
     "directory": "/home/tlecla/projects/c/535-A1",
-    "file": "/home/tlecla/projects/c/535-A1/src/services/service.c",
-    "output": "/home/tlecla/projects/c/535-A1/lib/obj/services/service.o"
+    "file": "/home/tlecla/projects/c/535-A1/src/apps/app_b_2.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/apps/app_b_2.o"
   },
   {
     "arguments": [
@@ -216,12 +216,12 @@
       "-g",
       "-c",
       "-o",
-      "lib/obj/services/service2.o",
-      "src/services/service2.c"
+      "lib/obj/services/service_a_1.o",
+      "src/services/service_a_1.c"
     ],
     "directory": "/home/tlecla/projects/c/535-A1",
-    "file": "/home/tlecla/projects/c/535-A1/src/services/service2.c",
-    "output": "/home/tlecla/projects/c/535-A1/lib/obj/services/service2.o"
+    "file": "/home/tlecla/projects/c/535-A1/src/services/service_a_1.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/services/service_a_1.o"
   },
   {
     "arguments": [
@@ -232,12 +232,12 @@
       "-g",
       "-c",
       "-o",
-      "lib/obj/services/service3.o",
-      "src/services/service3.c"
+      "lib/obj/services/service_a_2.o",
+      "src/services/service_a_2.c"
     ],
     "directory": "/home/tlecla/projects/c/535-A1",
-    "file": "/home/tlecla/projects/c/535-A1/src/services/service3.c",
-    "output": "/home/tlecla/projects/c/535-A1/lib/obj/services/service3.o"
+    "file": "/home/tlecla/projects/c/535-A1/src/services/service_a_2.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/services/service_a_2.o"
   },
   {
     "arguments": [
@@ -248,12 +248,28 @@
       "-g",
       "-c",
       "-o",
-      "lib/obj/services/service4.o",
-      "src/services/service4.c"
+      "lib/obj/services/service_b_1.o",
+      "src/services/service_b_1.c"
     ],
     "directory": "/home/tlecla/projects/c/535-A1",
-    "file": "/home/tlecla/projects/c/535-A1/src/services/service4.c",
-    "output": "/home/tlecla/projects/c/535-A1/lib/obj/services/service4.o"
+    "file": "/home/tlecla/projects/c/535-A1/src/services/service_b_1.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/services/service_b_1.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-I./include",
+      "-Wall",
+      "-Wextra",
+      "-g",
+      "-c",
+      "-o",
+      "lib/obj/services/service_b_2.o",
+      "src/services/service_b_2.c"
+    ],
+    "directory": "/home/tlecla/projects/c/535-A1",
+    "file": "/home/tlecla/projects/c/535-A1/src/services/service_b_2.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/services/service_b_2.o"
   },
   {
     "arguments": [
