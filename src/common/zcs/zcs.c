@@ -20,7 +20,8 @@ typedef struct ad_notification {
   char *value;
 } ad_notification_t;
 
-mcast_t *m;
+mcast_t *m_rec;
+mcast_t *m_send;
 char *service_name;
 zcs_attribute_t *attribute_array;
 int num_attr;
@@ -129,7 +130,7 @@ void handle_disc() {
 
   char *notification =
       create_notification_msg(service_name, num_attr, attribute_array);
-  multicast_send(m, notification, strlen(notification));
+  multicast_send(m_send, notification, strlen(notification));
   free(notification);
 }
 
@@ -174,14 +175,14 @@ void handle_msg(char *msg) {
 void *run_receive_service_message() {
   while (1) {
     // Check for messages
-    int rc = multicast_check_receive(m);
+    int rc = multicast_check_receive(m_rec);
 
     // If there is a message, then process it
     if (rc > 0) {
       char *msg = (char *)malloc(sizeof(char) * 1024);
       // Receive the message
 
-      multicast_receive(m, msg, 1024);
+      multicast_receive(m_rec, msg, 1024);
       handle_msg(msg);
     }
   }
@@ -195,10 +196,10 @@ void *run_receive_service_message() {
 void *run_receive_discovery_message() {
   while (stopThread == 0) {
     // Continually check for DISCOVERY messages
-    int rc = multicast_check_receive(m);
+    int rc = multicast_check_receive(m_rec);
     if (rc > 0) {
       char *msg = (char *)malloc(sizeof(char) * 1024);
-      multicast_receive(m, msg, 1024);
+      multicast_receive(m_rec, msg, 1024);
 
       handle_msg(msg);
     }
@@ -215,7 +216,7 @@ void *run_send_heartbeat() {
     sleep(3);
     // Continually send HEARTBEAT messages
     char *heartbeat = create_heartbeat_msg(service_name);
-    multicast_send(m, heartbeat, strlen(heartbeat));
+    multicast_send(m_send, heartbeat, strlen(heartbeat));
     free(heartbeat);
   }
   return 0;
@@ -250,13 +251,15 @@ Otherwise, it returns a -1.
 int zcs_init(int type, int lan) {
   TYPE_OF_PROGRAM = type;
 
+  // Addresses that m_send will use for app
   char *lan_ip_app;
+  // Addresses that m_send will use for service
   char *lan_ip_service;
 
   switch (lan) {
   case 0:
-    lan_ip_app = "224.0.0.1";
-    lan_ip_service = "224.0.0.2";
+    lan_ip_app = "224.1.10.1";
+    lan_ip_service = "224.1.10.2";
     break;
   case 1:
     lan_ip_app = "224.0.0.3";
@@ -271,40 +274,47 @@ int zcs_init(int type, int lan) {
 
   // If the type is ZCS_APP_TYPE, then the node is an application
   if (TYPE_OF_PROGRAM == ZCS_APP_TYPE) {
-    m = multicast_init(lan_ip_app, 5000, 8080);
-
-    if (m == NULL) {
+    m_send = multicast_init(lan_ip_app, 5000, 8081);
+    if (m_send == NULL) {
+      return -1;
+    }
+    m_rec = multicast_init(lan_ip_service, 8080, 5001);
+    if (m_rec == NULL) {
       return -1;
     }
 
     start_local_registry();
 
     // Support for receivig messages
-    multicast_setup_recv(m);
+    multicast_setup_recv(m_rec);
 
     // Create thread to continually check for messages
-    int result = pthread_create(&tid, NULL, run_receive_service_message, m);
+    int result = pthread_create(&tid, NULL, run_receive_service_message, m_rec);
     if (result != 0) {
       return -1;
     }
 
-    int heartbeat_thread = pthread_create(&tid, NULL, run_heartbeat_checker, m);
+    int heartbeat_thread = pthread_create(&tid, NULL, run_heartbeat_checker, m_rec);
     if (heartbeat_thread != 0) {
       return -1;
     }
 
     // Send a DISCOVERY message to the network
     char *disc_msg = create_discovery_msg();
-    multicast_send(m, disc_msg, strlen(disc_msg));
+    multicast_send(m_send, disc_msg, strlen(disc_msg));
     free(disc_msg);
   }
   // If the type is ZCS_SERVICE_TYPE, then the node is a discovery node
   else if (TYPE_OF_PROGRAM == ZCS_SERVICE_TYPE) {
-    m = multicast_init(lan_ip_service, 8080, 5000);
-
-    if (m == NULL) {
+    m_rec = multicast_init(lan_ip_app, 8082, 5000);
+    if (m_rec == NULL) {
       return -1;
     }
+    m_send = multicast_init(lan_ip_service, 5001, 8083);
+    if (m_send == NULL) {
+      return -1;
+    }
+
   } else {
     return -1;
   }
@@ -345,12 +355,12 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
   num_attr = num;
 
   // Set up message receiving
-  multicast_setup_recv(m);
+  multicast_setup_recv(m_rec);
 
   // Send a NOTIFICATION message to the network
   char *notification =
       create_notification_msg(service_name, num_attr, attribute_array);
-  int sent = multicast_send(m, notification, strlen(notification));
+  int sent = multicast_send(m_send, notification, strlen(notification));
   free(notification);
   if (sent < 0) {
     return -1;
@@ -360,14 +370,14 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
   pthread_t tid2;
 
   // Create a thread to run receive_discovery_message
-  int result = pthread_create(&tid1, NULL, run_receive_discovery_message, m);
+  int result = pthread_create(&tid1, NULL, run_receive_discovery_message, m_rec);
 
   if (result != 0) {
     return -1;
   }
 
   // Create a thread to run send_heartbeat
-  int result2 = pthread_create(&tid2, NULL, run_send_heartbeat, m);
+  int result2 = pthread_create(&tid2, NULL, run_send_heartbeat, m_send);
 
   if (result2 != 0) {
     return -1;
@@ -396,7 +406,7 @@ int zcs_post_ad(char *ad_name, char *ad_value) {
   }
 
   char *ad_msg = create_ad_msg(service_name, ad_name, ad_value);
-  int sent = multicast_send(m, ad_msg, strlen(ad_msg));
+  int sent = multicast_send(m_send, ad_msg, strlen(ad_msg));
   free(ad_msg);
   if (sent < 0) {
     return 0;
@@ -482,7 +492,8 @@ int zcs_shutdown() {
   }
 
   // Close the multicast socket
-  multicast_destroy(m);
+  multicast_destroy(m_send);
+  multicast_destroy(m_rec);
 
   // Set global var so that the receive thread can stop
   stopThread = 1;

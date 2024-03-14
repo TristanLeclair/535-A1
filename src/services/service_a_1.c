@@ -1,5 +1,5 @@
 #include <unistd.h>
-#include "zcs/zcs.h"P
+#include "zcs/zcs.h"
 
 int main() {
     zcs_init(ZCS_SERVICE_TYPE, 0);
