@@ -247,14 +247,29 @@ Returns a 0 if the initialization was a success.
 Otherwise, it returns a -1.
  *
  */
-int zcs_init(int type) {
+int zcs_init(int type, int lan) {
   TYPE_OF_PROGRAM = type;
+
+  char *lan_ip_app;
+  char *lan_ip_service;
+
+  switch (lan) {
+  case 0:
+    lan_ip_app = "224.0.0.1";
+    lan_ip_service = "224.0.0.2";
+  case 1:
+    lan_ip_app = "224.0.0.3";
+    lan_ip_service = "224.0.0.4";
+  default:
+    exit(EXIT_FAILURE);
+    return -1;
+  }
 
   pthread_t tid;
 
   // If the type is ZCS_APP_TYPE, then the node is an application
   if (TYPE_OF_PROGRAM == ZCS_APP_TYPE) {
-    m = multicast_init("224.1.1.1", 5000, 8080);
+    m = multicast_init(lan_ip_app, 5000, 8080);
 
     if (m == NULL) {
       return -1;
@@ -283,13 +298,12 @@ int zcs_init(int type) {
   }
   // If the type is ZCS_SERVICE_TYPE, then the node is a discovery node
   else if (TYPE_OF_PROGRAM == ZCS_SERVICE_TYPE) {
-    m = multicast_init("224.1.1.1", 8080, 5000);
+    m = multicast_init(lan_ip_service, 8080, 5000);
 
     if (m == NULL) {
       return -1;
     }
-  }
-  else {
+  } else {
     return -1;
   }
 
@@ -370,7 +384,8 @@ The advertisement duration and repeat attempts
 are pre-set in the ZCS library. The node will attempt to deliver the
 advertisements to other nodes in the network according to the duration and
 repeat attempts. Returns the number of times the advertisement was posted on the
-network. It will return 0 (no posting) to indicate an error condition. This will happen if the posting was called before the node was started.
+network. It will return 0 (no posting) to indicate an error condition. This will
+happen if the posting was called before the node was started.
   */
 int zcs_post_ad(char *ad_name, char *ad_value) {
   // Send an ADD message to the network
