@@ -257,9 +257,11 @@ int zcs_init(int type, int lan) {
   case 0:
     lan_ip_app = "224.0.0.1";
     lan_ip_service = "224.0.0.2";
+    break;
   case 1:
     lan_ip_app = "224.0.0.3";
     lan_ip_service = "224.0.0.4";
+    break;
   default:
     exit(EXIT_FAILURE);
     return -1;
