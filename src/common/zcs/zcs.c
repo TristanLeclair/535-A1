@@ -1,4 +1,10 @@
-#include "../../../include/zcs/zcs.h"
+#include "zcs/zcs.h"
+#include "logs/log_manager.h"
+#include "messages/message_creation.h"
+#include "messages/messages.h"
+#include "multicast/multicast.h"
+#include "zcs/local_registry.h"
+#include "zcs/zcs_utils.h"
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdbool.h>

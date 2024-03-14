@@ -1,4 +1,4 @@
-#include "../../../include/logs/log_structs.h"
+#include "logs/log_structs.h"
 #include <stdlib.h>
 
 log_list_t *log_list;
