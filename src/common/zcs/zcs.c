@@ -3,6 +3,7 @@
 #include "messages/message_creation.h"
 #include "messages/messages.h"
 #include "multicast/multicast.h"
+#include "networking/networking.h"
 #include "zcs/local_registry.h"
 #include "zcs/zcs_utils.h"
 #include <netinet/in.h>
@@ -258,12 +259,12 @@ int zcs_init(int type, int lan) {
 
   switch (lan) {
   case 0:
-    lan_ip_app = "224.1.10.1";
-    lan_ip_service = "224.1.10.2";
+    lan_ip_app = LAN_IP_APP_A;
+    lan_ip_service = LAN_IP_SERVICE_A;
     break;
   case 1:
-    lan_ip_app = "224.0.0.3";
-    lan_ip_service = "224.0.0.4";
+    lan_ip_app = LAN_IP_APP_B;
+    lan_ip_service = LAN_IP_SERVICE_B;
     break;
   default:
     exit(EXIT_FAILURE);
@@ -294,7 +295,8 @@ int zcs_init(int type, int lan) {
       return -1;
     }
 
-    int heartbeat_thread = pthread_create(&tid, NULL, run_heartbeat_checker, m_rec);
+    int heartbeat_thread =
+        pthread_create(&tid, NULL, run_heartbeat_checker, m_rec);
     if (heartbeat_thread != 0) {
       return -1;
     }
@@ -370,7 +372,8 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
   pthread_t tid2;
 
   // Create a thread to run receive_discovery_message
-  int result = pthread_create(&tid1, NULL, run_receive_discovery_message, m_rec);
+  int result =
+      pthread_create(&tid1, NULL, run_receive_discovery_message, m_rec);
 
   if (result != 0) {
     return -1;
