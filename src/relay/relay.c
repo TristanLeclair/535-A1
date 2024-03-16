@@ -33,6 +33,8 @@ void *run_relay(void *mcasts) {
 }
 
 int main() {
+
+  // TODO: a lot of these IPs and ports aren't correctly configured, we'll need to fix this
   mcast_t *m_app_rec_a =
       multicast_init(LAN_IP_APP_A, PORT_APP_REC_OUT, PORT_APP_REC_IN);
   mcast_t *m_app_rec_b =
