@@ -20,13 +20,18 @@ SERVICE_SOURCES := $(wildcard $(SRCDIR)/services/*.c)
 SERVICE_OBJECTS := $(SERVICE_SOURCES:$(SRCDIR)/%.c=$(OBJDIR)/%.o)
 SERVICE_EXECUTABLES := $(patsubst $(SRCDIR)/services/%.c, $(BINDIR)/services/%, $(SERVICE_SOURCES))
 
+# Automatically find relay source files
+RELAY_SOURCES := $(wildcard $(SRCDIR)/relay/*.c)
+RELAY_OBJECTS := $(RELAY_SOURCES:$(SRCDIR)/%.c=$(OBJDIR)/%.o)
+RELAY_EXECUTABLES := $(patsubst $(SRCDIR)/relay/%.c, $(BINDIR)/relay/%, $(RELAY_SOURCES))
+
 # Testing files
 TESTER_SOURCES := $(wildcard $(SRCDIR)/testers/*.c)
 TESTER_OBJECTS := $(TESTER_SOURCES:$(SRCDIR)/%.c=$(OBJDIR)/%.o)
 TESTER_EXECUTABLES := $(patsubst $(SRCDIR)/testers/%.c, $(BINDIR)/testers/%, $(TESTER_SOURCES))
 
 # All targets
-all: $(APP_EXECUTABLES) $(SERVICE_EXECUTABLES) testers
+all: $(APP_EXECUTABLES) $(SERVICE_EXECUTABLES) testers $(RELAY_EXECUTABLES)
 
 # Compile and link each app
 $(BINDIR)/apps/%: $(OBJDIR)/apps/%.o $(COMMON_OBJECTS)
@@ -45,6 +50,16 @@ $(BINDIR)/services/%: $(OBJDIR)/services/%.o $(COMMON_OBJECTS)
 
 # Compile service object files
 $(OBJDIR)/services/%.o: $(SRCDIR)/services/%.c
+	mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Compile and link each relay
+$(BINDIR)/relay/%: $(OBJDIR)/relay/%.o $(COMMON_OBJECTS)
+	mkdir -p $(dir $@)
+	$(CC) $(LDFLAGS) $^ -o $@
+
+# Compile relay object files
+$(OBJDIR)/relay/%.o: $(SRCDIR)/relay/%.c
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 

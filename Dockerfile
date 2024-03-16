@@ -5,8 +5,8 @@ RUN apk add --no-cache gcc g++ make libc-dev
 
 WORKDIR /app
 
-COPY src/ src/
 COPY include/ include/
 COPY Makefile .
+COPY src/ src/
 
 RUN make all
