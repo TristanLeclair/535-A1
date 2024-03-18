@@ -5,6 +5,7 @@
 #include "multicast/multicast.h"
 #include "networking/networking.h"
 #include "zcs/local_registry.h"
+#include "zcs/zcs_structs.h"
 #include "zcs/zcs_utils.h"
 #include <netinet/in.h>
 #include <pthread.h>
@@ -60,7 +61,7 @@ void handle_notification(char *token) {
   }
 
   node = (zcs_node_t *)malloc(sizeof(zcs_node_t));
-  node->name = token;
+  node->name = strdup(token);
   update_status(node, UP);
 
   token = strtok(NULL, "#");
@@ -83,6 +84,7 @@ void handle_notification(char *token) {
     token = strtok(NULL, "#");
     i++;
   }
+  node->attr_len = i;
   add_node_to_registry(node);
   return;
 }
@@ -103,14 +105,18 @@ void handle_ad() {
   if (TYPE_OF_PROGRAM != ZCS_APP_TYPE) {
     return;
   }
-  ad_notification_t *ad =
-      (ad_notification_t *)malloc(sizeof(ad_notification_t));
+  // ad_notification_t *ad =
+  //     (ad_notification_t *)malloc(sizeof(ad_notification_t));
 
-  ad->service_name = strtok(NULL, "#");
-  ad->name = strtok(NULL, "#");
-  ad->value = strtok(NULL, "#");
+  // ad->service_name = strtok(NULL, "#");
+  // ad->name = strtok(NULL, "#");
+  // ad->value = strtok(NULL, "#");
 
-  zcs_node_t *node = find_node_in_registry(ad->service_name);
+  char *service_name = strtok(NULL, "#");
+  char *name = strtok(NULL, "#");
+  char *value = strtok(NULL, "#");
+
+  zcs_node_t *node = find_node_in_registry(service_name);
 
   if (node == NULL) {
     return;
@@ -120,7 +126,8 @@ void handle_ad() {
   if (callback == NULL)
     return;
 
-  node->cback(ad->name, ad->value);
+  node->cback(name, value);
+  // free(ad);
   return;
 }
 
@@ -180,11 +187,12 @@ void *run_receive_service_message() {
 
     // If there is a message, then process it
     if (rc > 0) {
-      char *msg = (char *)malloc(sizeof(char) * 1024);
+      char msg[1024];
       // Receive the message
 
-      multicast_receive(m_rec, msg, 1024);
+      multicast_receive(m_rec, msg, sizeof(msg));
       handle_msg(msg);
+      memset(msg, 0, sizeof(msg));
     }
   }
   return 0;
@@ -199,10 +207,11 @@ void *run_receive_discovery_message() {
     // Continually check for DISCOVERY messages
     int rc = multicast_check_receive(m_rec);
     if (rc > 0) {
-      char *msg = (char *)malloc(sizeof(char) * 1024);
-      multicast_receive(m_rec, msg, 1024);
+      char msg[1024];
+      multicast_receive(m_rec, msg, sizeof(msg));
 
       handle_msg(msg);
+      memset(msg, 0, sizeof(msg));
     }
   }
   return 0;
@@ -275,11 +284,13 @@ int zcs_init(int type, int lan) {
 
   // If the type is ZCS_APP_TYPE, then the node is an application
   if (TYPE_OF_PROGRAM == ZCS_APP_TYPE) {
-    m_send = multicast_init(lan_ip_app, 5000, 8081);
+    int port_out = lan == 0 ? PORT_APP_SEND_A : PORT_APP_SEND_B;
+    int port_in = lan == 0 ? PORT_APP_REC_A : PORT_APP_REC_B;
+    m_send = multicast_init(lan_ip_app, port_out, PORT_TRASH);
     if (m_send == NULL) {
       return -1;
     }
-    m_rec = multicast_init(lan_ip_service, 8080, 5001);
+    m_rec = multicast_init(lan_ip_service, PORT_TRASH, port_in);
     if (m_rec == NULL) {
       return -1;
     }
@@ -308,11 +319,13 @@ int zcs_init(int type, int lan) {
   }
   // If the type is ZCS_SERVICE_TYPE, then the node is a discovery node
   else if (TYPE_OF_PROGRAM == ZCS_SERVICE_TYPE) {
-    m_rec = multicast_init(lan_ip_app, 8082, 5000);
+    int port_out = lan == 0 ? PORT_SERVICE_SEND_A : PORT_APP_SEND_B;
+    int port_in = lan == 0 ? PORT_SERVICE_REC_A : PORT_APP_REC_B;
+    m_rec = multicast_init(lan_ip_app, PORT_TRASH, port_in);
     if (m_rec == NULL) {
       return -1;
     }
-    m_send = multicast_init(lan_ip_service, 5001, 8083);
+    m_send = multicast_init(lan_ip_service, port_out, PORT_TRASH);
     if (m_send == NULL) {
       return -1;
     }
@@ -427,13 +440,21 @@ is not in the same network as the matching node.
 */
 int zcs_query(char *attr_name, char *attr_value, char *node_names[],
               int namelen) {
+  if (local_registry_empty() == 1) {
+    return 0;
+  }
+
   int i = 0;
   zcs_node_t *current = get_head_of_registry();
   while (current != NULL && i < namelen) {
-    if (strcmp(current->attributes[i].attr_name, attr_name) == 0 &&
-        strcmp(current->attributes[i].value, attr_value) == 0) {
-      node_names[i] = current->name;
-      i++;
+    // TODO: update this to MAX_ATTRIBUTES (maybe bear recompile)
+    for (int attr_index = 0; attr_index < current->attr_len; attr_index++) {
+      if (strcmp(current->attributes[attr_index].attr_name, attr_name) == 0 &&
+          strcmp(current->attributes[attr_index].value, attr_value) == 0) {
+        node_names[i] = current->name;
+        i++;
+        break;
+      }
     }
     current = current->next;
   }

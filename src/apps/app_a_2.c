@@ -18,14 +18,14 @@ int main() {
   }
   char *names[10];
   while (1) {
-    rv = zcs_query("type", "smartlight", names, 10);
-    if (rv > 0) {
+    int serv_len = zcs_query("type", "smartlight", names, 10);
+    for (int i = 0; i < serv_len; ++i) {
       zcs_attribute_t attrs[5];
       int anum = 5;
-      rv = zcs_get_attribs(names[0], attrs, &anum);
+      rv = zcs_get_attribs(names[i], attrs, &anum);
       if ((strcmp(attrs[1].attr_name, "location") == 0) &&
           (strcmp(attrs[1].value, "basement") == 0)) {
-        rv = zcs_listen_ad(names[0], hello);
+        rv = zcs_listen_ad(names[i], hello);
       }
     }
   }
