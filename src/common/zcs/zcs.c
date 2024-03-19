@@ -29,6 +29,7 @@ zcs_attribute_t *attribute_array;
 int num_attr;
 int STARTED = 0;
 int INITIALIZED = 0;
+char LAN;
 int TYPE_OF_PROGRAM;
 
 // Global var to stop thread
@@ -137,7 +138,7 @@ void handle_disc() {
   }
 
   char *notification =
-      create_notification_msg(service_name, num_attr, attribute_array);
+      create_notification_msg(LAN, service_name, num_attr, attribute_array);
   multicast_send(m_send, notification, strlen(notification));
   free(notification);
 }
@@ -148,6 +149,16 @@ void handle_msg(char *msg) {
   }
 
   char *token = strtok(msg, "#");
+
+  if (token == NULL) {
+    return;
+  }
+
+  if (!(strcmp(token, "A") == 0 || strcmp(token, "B") == 0)) {
+    return;
+  }
+
+  token = strtok(NULL, "#");
 
   if (token == NULL) {
     return;
@@ -225,7 +236,7 @@ void *run_send_heartbeat() {
   while (stopThread == 0) {
     sleep(3);
     // Continually send HEARTBEAT messages
-    char *heartbeat = create_heartbeat_msg(service_name);
+    char *heartbeat = create_heartbeat_msg(LAN, service_name);
     multicast_send(m_send, heartbeat, strlen(heartbeat));
     free(heartbeat);
   }
@@ -260,18 +271,19 @@ Otherwise, it returns a -1.
  */
 int zcs_init(int type, int lan) {
   TYPE_OF_PROGRAM = type;
+  LAN = lan == 0 ? 'A' : 'B';
 
   // Addresses that m_send will use for app
   char *lan_ip_app;
   // Addresses that m_send will use for service
   char *lan_ip_service;
 
-  switch (lan) {
-  case 0:
+  switch (LAN) {
+  case 'A':
     lan_ip_app = LAN_IP_APP_A;
     lan_ip_service = LAN_IP_SERVICE_A;
     break;
-  case 1:
+  case 'B':
     lan_ip_app = LAN_IP_APP_B;
     lan_ip_service = LAN_IP_SERVICE_B;
     break;
@@ -313,14 +325,14 @@ int zcs_init(int type, int lan) {
     }
 
     // Send a DISCOVERY message to the network
-    char *disc_msg = create_discovery_msg();
+    char *disc_msg = create_discovery_msg(LAN);
     multicast_send(m_send, disc_msg, strlen(disc_msg));
     free(disc_msg);
   }
   // If the type is ZCS_SERVICE_TYPE, then the node is a discovery node
   else if (TYPE_OF_PROGRAM == ZCS_SERVICE_TYPE) {
-    int port_out = lan == 0 ? PORT_SERVICE_SEND_A : PORT_APP_SEND_B;
-    int port_in = lan == 0 ? PORT_SERVICE_REC_A : PORT_APP_REC_B;
+    int port_out = lan == 0 ? PORT_SERVICE_SEND_A : PORT_SERVICE_SEND_B;
+    int port_in = lan == 0 ? PORT_SERVICE_REC_A : PORT_SERVICE_REC_B;
     m_rec = multicast_init(lan_ip_app, PORT_TRASH, port_in);
     if (m_rec == NULL) {
       return -1;
@@ -374,7 +386,7 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
 
   // Send a NOTIFICATION message to the network
   char *notification =
-      create_notification_msg(service_name, num_attr, attribute_array);
+      create_notification_msg(LAN, service_name, num_attr, attribute_array);
   int sent = multicast_send(m_send, notification, strlen(notification));
   free(notification);
   if (sent < 0) {
@@ -421,7 +433,7 @@ int zcs_post_ad(char *ad_name, char *ad_value) {
     return 0;
   }
 
-  char *ad_msg = create_ad_msg(service_name, ad_name, ad_value);
+  char *ad_msg = create_ad_msg(LAN, service_name, ad_name, ad_value);
   int sent = multicast_send(m_send, ad_msg, strlen(ad_msg));
   free(ad_msg);
   if (sent < 0) {
