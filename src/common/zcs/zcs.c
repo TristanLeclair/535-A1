@@ -459,7 +459,6 @@ int zcs_query(char *attr_name, char *attr_value, char *node_names[],
   int i = 0;
   zcs_node_t *current = get_head_of_registry();
   while (current != NULL && i < namelen) {
-    // TODO: update this to MAX_ATTRIBUTES (maybe bear recompile)
     for (int attr_index = 0; attr_index < current->attr_len; attr_index++) {
       if (strcmp(current->attributes[attr_index].attr_name, attr_name) == 0 &&
           strcmp(current->attributes[attr_index].value, attr_value) == 0) {
