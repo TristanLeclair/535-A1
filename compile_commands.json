@@ -328,11 +328,11 @@
       "-g",
       "-c",
       "-o",
-      "lib/obj/relay/relay2.o",
-      "src/relay/relay2.c"
+      "lib/obj/relay/relay.o",
+      "src/relay/relay.c"
     ],
     "directory": "/home/tlecla/projects/c/535-A1",
-    "file": "/home/tlecla/projects/c/535-A1/src/relay/relay2.c",
-    "output": "/home/tlecla/projects/c/535-A1/lib/obj/relay/relay2.o"
+    "file": "/home/tlecla/projects/c/535-A1/src/relay/relay.c",
+    "output": "/home/tlecla/projects/c/535-A1/lib/obj/relay/relay.o"
   }
 ]
