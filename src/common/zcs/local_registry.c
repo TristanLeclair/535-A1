@@ -3,11 +3,17 @@
 #include <stdlib.h>
 
 node_list_t *local_registry;
+int emtpy = 1;
 
 void start_local_registry() { local_registry = malloc(sizeof(node_list_t)); }
 
+int local_registry_empty() {
+  return emtpy;
+}
+
 void add_node_to_registry(zcs_node_t *node) {
   if (local_registry->head == NULL) {
+    emtpy = 0;
     local_registry->head = node;
     local_registry->tail = node;
   } else {
@@ -25,5 +31,6 @@ zcs_node_t *get_head_of_registry() {
 }
 
 void free_registry() {
+  emtpy = 1;
   free(local_registry);
 }

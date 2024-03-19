@@ -4,6 +4,8 @@
 #include "status.h"
 #include <time.h>
 
+#define MAX_ATTRIBUTES 10
+
 typedef struct {
   char attr_name[64];
   char value[64];
@@ -17,7 +19,8 @@ typedef struct _zcs_node_t {
   time_t hearbeat_time;
   zcs_cb_f cback;
   struct _zcs_node_t *next;
-  zcs_attribute_t attributes[10];
+  zcs_attribute_t attributes[MAX_ATTRIBUTES];
+  int attr_len;
 } zcs_node_t;
 
 typedef struct _node_list_t {
