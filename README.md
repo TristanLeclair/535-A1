@@ -14,6 +14,14 @@ We've created a script to automatically build and start small alpine linux conta
 - `docker exec -it service sh` to open container shell prompt
 - `./bin/services/service` to start an app (choose executable in `./bin/`)
 
+#### RELAY
+
+To connects nodes in LAN A to nodes in LAN B, you need a relay.
+
+- `./scripts/clean_relay.sh` will create a container for the relay
+- `docker exec -it relay sh` to open container shell prompt
+- `./bin/relay/relay` to start the relay
+
 ### Manual
 
 To create individual containers:
